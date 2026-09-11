@@ -7,6 +7,21 @@ Static one-page recruiting site for Zara Thomas (basketball player profile).
 - **Domain:** `zara-thomas.com`
 - **DNS / registrar:** managed on Cloudflare
 
+## Deployment
+
+Cloudflare Pages project **`zara-thomas`** (direct upload, not Git-connected — a
+push to GitHub does NOT deploy on its own).
+
+```bash
+npx wrangler@latest pages deploy . --project-name=zara-thomas --branch=main
+```
+
+- Preview URL: `zara-thomas.pages.dev`
+- `zara-thomas.com` — apex, CNAME to `zara-thomas.pages.dev`, proxied
+- `www.zara-thomas.com` — AAAA `100::` proxied, 301'd to the apex by the zone's
+  "Redirect www to apex" rule (`http_request_dynamic_redirect` phase)
+- Zone `a64247cf7a340e315f89bc58dbc1baeb`, account `8d06ce22491730cc465d147a156c9da8`
+
 ## Layout
 
 - `index.html` — the whole page (hero, stats, highlight reel, career, notes, contact)
