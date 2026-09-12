@@ -1,0 +1,50 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race; the newest commit on main should win.
+concurrency:
+  group: pages-deploy-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Publish only the site itself — not CLAUDE.md, .gitignore or .github.
+      - name: Stage site files
+        run: |
+          mkdir -p dist
+          cp index.html styles.css dist/
+          [ -d assets ] && cp -R assets dist/ || true
+          find dist -type f | sort
+
+      - name: Deploy to Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=zara-thomas --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify the live site
+        run: |
+          set -e
+          # Pages needs a moment to roll the new deployment out to the edge.
+          for i in $(seq 1 20); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 https://zara-thomas.com/ || echo 000)
+            echo "attempt $i: https://zara-thomas.com/ -> $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::zara-thomas.com did not return 200 after deploy"
+          exit 1
