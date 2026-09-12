@@ -9,8 +9,12 @@ Static one-page recruiting site for Zara Thomas (basketball player profile).
 
 ## Deployment
 
-Cloudflare Pages project **`zara-thomas`** (direct upload, not Git-connected — a
-push to GitHub does NOT deploy on its own).
+Cloudflare Pages project **`zara-thomas`** (direct upload, not Git-connected on
+the Cloudflare side). Deploys are driven by `.github/workflows/deploy.yml`: a
+push to `main` stages the site files into `dist/` and uploads them, so pushing
+is publishing.
+
+To deploy by hand (bypassing CI):
 
 ```bash
 npx wrangler@latest pages deploy . --project-name=zara-thomas --branch=main
@@ -33,10 +37,11 @@ drawing EU traffic. There is none today.
 
 ## Layout
 
-- `index.html` — the whole page (hero, stats, highlight reel, career, notes, contact)
+- `index.html` — the whole page (hero, stats, highlight reel, career, team photo, notes, contact)
 - `404.html` — not-found page; Pages serves it automatically for unknown paths
 - `styles.css` — all styling; design tokens live in `:root`
-- `assets/zara.jpg` — hero portrait, 480×480
+- `assets/zara.jpg` — hero portrait, 520×693 (the hero frame is 3:4, `object-fit: cover`)
+- `assets/zara-team.jpg` — team photo in the `#team` section, 1200×1050
 
 No build step. Preview with `python3 -m http.server` from the repo root.
 

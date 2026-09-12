@@ -365,6 +365,34 @@ img { max-width: 100%; }
 .career-team { font-weight: 600; color: #fff; }
 .career-level { color: var(--text-body); }
 
+/* ---------- Team photo ---------- */
+
+.photo-figure {
+  margin: 0;
+  /* The photo is close to square, so full shell width would tower over the
+     rest of the page; cap it and let it centre instead. */
+  max-width: 820px;
+}
+
+.photo-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.photo-frame img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.photo-caption {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 /* ---------- Notes / quote ---------- */
 
 .notes {
