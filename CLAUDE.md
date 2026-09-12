@@ -30,7 +30,9 @@ npx wrangler@latest pages deploy . --project-name=zara-thomas --branch=main
 
 Google Analytics 4, measurement ID `G-V5HT5WD4TB`. The gtag.js snippet is inline
 in the `<head>` of **both** `index.html` and `404.html` — if you add another page,
-copy the snippet into it or it won't be tracked.
+copy the snippet into it or it won't be tracked. The same goes for the favicon
+`<link>`s; note `404.html` references assets absolutely (`/assets/…`) because
+Pages serves it from arbitrary URLs.
 
 GA4 sets cookies, so a consent notice is likely required if the site starts
 drawing EU traffic. There is none today.
@@ -42,6 +44,10 @@ drawing EU traffic. There is none today.
 - `styles.css` — all styling; design tokens live in `:root`
 - `assets/zara.jpg` — hero portrait, 520×693 (the hero frame is 3:4, `object-fit: cover`)
 - `assets/zara-team.jpg` — team photo in the `#team` section, 1200×1050
+- `assets/favicon.svg` — "ZT" mark, dark letters on `--accent` orange; the
+  letterforms are paths, not text, so it needs no font
+- `assets/apple-touch-icon.png` — 180×180 square render of the same mark (iOS
+  applies its own rounded mask, so this one has no corner radius)
 
 No build step. Preview with `python3 -m http.server` from the repo root.
 

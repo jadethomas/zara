@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ZT">
+  <!-- Letterforms are paths, not text, so the icon renders identically
+       everywhere without depending on Barlow Condensed being installed. -->
+  <rect width="64" height="64" rx="12" fill="#ff7a1a"/>
+  <path d="M8 18 H30 V25 L21 39 H30 V46 H8 V39 L17 25 H8 Z" fill="#0b0e14"/>
+  <path d="M34 18 H56 V25 H49 V46 H41 V25 H34 Z" fill="#0b0e14"/>
+</svg>
