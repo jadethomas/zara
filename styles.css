@@ -448,6 +448,41 @@ img { max-width: 100%; }
   outline-offset: 2px;
 }
 
+/* ---------- 404 ---------- */
+
+.notfound {
+  padding: clamp(64px, 14vh, 140px) var(--gutter);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.notfound-code {
+  margin: 0;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: clamp(72px, 16vw, 160px);
+  line-height: 0.85;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.notfound-title {
+  margin: 8px 0 0;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: clamp(36px, 6vw, 56px);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.notfound-copy {
+  margin: 16px 0 0;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-body);
+  max-width: 48ch;
+}
+
 /* ---------- Footer ---------- */
 
 .site-footer {
