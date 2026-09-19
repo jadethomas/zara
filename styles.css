@@ -168,36 +168,96 @@ img { max-width: 100%; }
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin-inline: calc(var(--gutter) * -1);
+  background: #070b0d;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
 }
 
-.stat { background: var(--surface); padding: 20px 22px; }
+.stat {
+  position: relative;
+  background: #070b0d;
+  padding: 64px 28px 58px;
+  text-align: center;
+}
+
+.stat + .stat::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 64px;
+  bottom: 58px;
+  width: 1px;
+  background: var(--border);
+}
+
+.stat-icon {
+  display: block;
+  margin: 0 auto 22px;
+  color: var(--accent);
+  font-size: 38px;
+  line-height: 1;
+  filter: grayscale(1) brightness(0) saturate(100%) invert(70%) sepia(80%) saturate(900%) hue-rotate(95deg);
+}
 
 .stat-label {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text);
 }
+
 .stat-value {
-  margin: 6px 0 0;
+  margin: 12px 0 0;
   font-family: var(--cond);
   font-weight: 700;
-  font-size: 36px;
-  line-height: 1;
+  font-size: 28px;
+  line-height: 1.15;
 }
-.stat-value-accent { color: var(--accent); }
+
+.stat-value-accent { color: var(--accent); font-size: 44px; }
+
 .stat-sub {
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text);
+}
+
+.stat-sub-block {
+  display: block;
+  margin-top: 12px;
+}
+
+.stat-contact {
+  font-family: var(--body);
+  font-size: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stat-contact a { color: inherit; text-decoration: none; }
+
+@media (max-width: 760px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat { padding: 38px 16px; }
+  .stat + .stat::before { display: none; }
+  .stat:nth-child(odd)::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 38px;
+    bottom: 38px;
+    width: 1px;
+    background: var(--border);
+  }
+  .stat-value { font-size: 22px; }
+  .stat-value-accent { font-size: 36px; }
+  .stat-contact { font-size: 14px; white-space: normal; overflow-wrap: anywhere; }
 }
 
 /* ---------- Sections ---------- */
