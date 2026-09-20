@@ -402,6 +402,9 @@ img { max-width: 100%; }
 
 .prose {
   margin: 0;
+  /* Keeps line length readable while the coach-quote column is hidden and
+     the scouting notes span the full shell. Harmless in the two-column state. */
+  max-width: 62ch;
   font-size: 16px;
   line-height: 1.6;
   color: var(--text-body);
