@@ -42,7 +42,9 @@ drawing EU traffic. There is none today.
 - `index.html` — the whole page (hero, stats, highlight reel, career, team photo, notes, contact)
 - `404.html` — not-found page; Pages serves it automatically for unknown paths
 - `styles.css` — all styling; design tokens live in `:root`
-- `assets/zara.jpg` — hero portrait, 520×693 (the hero frame is 3:4, `object-fit: cover`)
+- `assets/zara-profile.jpg` — hero portrait, 939×1536 (the hero frame is 3:4,
+  `object-fit: cover` with `object-position: top center` so her head is never
+  cropped — the crop comes off the bottom)
 - `assets/zara-team.jpg` — team photo in the `#team` section, 1200×1050
 - `assets/favicon.svg` — "ZT" mark, dark letters on `--accent` orange; the
   letterforms are paths, not text, so it needs no font
