@@ -42,6 +42,11 @@ drawing EU traffic. There is none today.
 - `index.html` — the whole page (hero, stats, highlight reel, career, team photo, notes, contact)
 - `404.html` — not-found page; Pages serves it automatically for unknown paths
 - `styles.css` — all styling; design tokens live in `:root`
+- `_headers` — security headers served by Pages (CSP, HSTS, frame-ancestors,
+  Permissions-Policy). The CSP allowlists gtag/GA and Google Fonts, and
+  pre-allows YouTube / Vimeo / Hudl iframes for the future reel embed — a new
+  third-party script or embed host must be added here or it will be blocked.
+  deploy.yml stages files explicitly, so this file is named there too.
 - `assets/zara-profile.jpg` — hero portrait, 939×1536 (the hero frame is 3:4,
   `object-fit: cover` with `object-position: top center` so her head is never
   cropped — the crop comes off the bottom)

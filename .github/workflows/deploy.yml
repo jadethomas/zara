@@ -24,7 +24,7 @@ jobs:
       - name: Stage site files
         run: |
           mkdir -p dist
-          cp index.html 404.html styles.css dist/
+          cp index.html 404.html styles.css _headers dist/
           [ -d assets ] && cp -R assets dist/ || true
           find dist -type f | sort
 
