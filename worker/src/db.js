@@ -30,8 +30,8 @@ export function derive(box) {
   };
 }
 
-function filters(season, competition) {
-  const where = ["g.deleted = 0"];
+function filters(season, competition, { includeDeleted = false } = {}) {
+  const where = includeDeleted ? ["1 = 1"] : ["g.deleted = 0"];
   const args = [];
   if (season) { where.push("g.season = ?"); args.push(season); }
   if (competition) { where.push("g.competition = ?"); args.push(competition); }
@@ -40,7 +40,10 @@ function filters(season, competition) {
 
 /** Game log with a computed box score per game, newest first. */
 export async function gamesWithBox(db, { season, competition, includePrivate = false } = {}) {
-  const f = filters(season, competition);
+  // The private listing must include soft-deleted games: the tracker's pull
+  // distinguishes "deleted (restorable)" from "purged (gone)" by whether the
+  // game still appears here at all.
+  const f = filters(season, competition, { includeDeleted: includePrivate });
   const cols = includePrivate ? "g.*" : `g.id, g.date, g.opponent, g.competition,
        g.home_away, g.final_us, g.final_them, g.season`;
   const rows = await db.prepare(
@@ -91,13 +94,40 @@ export async function eventsForGame(db, gameId) {
   return rows.results;
 }
 
+/** Hard delete: the game and every event under it, atomically. Soft delete
+ * (deleted = 1 via sync) is the normal path; this is for purging test games. */
+export async function purgeGame(db, id) {
+  await db.batch([
+    db.prepare("DELETE FROM stat_events WHERE game_id = ?").bind(id),
+    db.prepare("DELETE FROM games WHERE id = ?").bind(id),
+  ]);
+}
+
 /**
  * Upsert a sync batch. Every statement is an upsert on the client-generated
  * id, so replaying the same batch is a no-op — retries cannot duplicate.
  * Game metadata is last-writer-wins on updated_at; events overwrite whole.
  * recorded_by is stamped on first insert and never reassigned.
+ *
+ * Events whose game no longer exists (purged) are SKIPPED and reported back,
+ * not inserted: the batch is atomic, so one orphaned event would otherwise
+ * fail the FK check and poison every retry of that client's queue.
  */
 export async function applySync(db, { games = [], events = [] }, email) {
+  const batchGameIds = new Set(games.map((g) => g.id));
+  const candidates = [...new Set(events.map((e) => e.game_id))].filter((id) => !batchGameIds.has(id));
+  const known = new Set();
+  for (let i = 0; i < candidates.length; i += 50) { // D1 bound-parameter limit
+    const chunk = candidates.slice(i, i + 50);
+    const rows = await db.prepare(
+      `SELECT id FROM games WHERE id IN (${chunk.map(() => "?").join(",")})`
+    ).bind(...chunk).all();
+    for (const r of rows.results) known.add(r.id);
+  }
+  const ok = (e) => batchGameIds.has(e.game_id) || known.has(e.game_id);
+  const skipped = events.filter((e) => !ok(e)).map((e) => e.id);
+  events = events.filter(ok);
+
   const stmts = [];
   const gameStmt = db.prepare(
     `INSERT INTO games (id, date, opponent, competition, home_away,
@@ -132,5 +162,5 @@ export async function applySync(db, { games = [], events = [] }, email) {
     ));
   }
   if (stmts.length) await db.batch(stmts); // atomic: all rows land or none do
-  return { games: games.length, events: events.length };
+  return { games: games.length, events: events.length, skipped_events: skipped };
 }

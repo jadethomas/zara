@@ -200,3 +200,38 @@ main { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: 
 @media (prefers-reduced-motion: reduce) {
   .pad-btn:active { transform: none; }
 }
+
+/* ---------- recently deleted + invite ---------- */
+#deleted-wrap summary {
+  font-family: var(--cond); font-weight: 700; font-size: 16px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  padding: 10px 2px; cursor: pointer;
+}
+#deleted-wrap[open] summary { color: var(--ink); }
+.deleted-row {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px;
+}
+.deleted-row .who-game { flex: 1; min-width: 0; }
+.deleted-row .who-game b { display: block; font-family: var(--cond); font-weight: 700; font-size: 16px; color: var(--ink); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deleted-row .who-game span { font-size: 12px; color: var(--muted); }
+.mini-btn {
+  min-height: 44px; padding: 0 12px; border-radius: 6px; font-size: 13px;
+  font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  border: 1px solid var(--border); color: var(--body); flex: none;
+}
+.mini-btn.danger { border-color: var(--danger); color: var(--danger); }
+.mini-btn[data-armed="1"] { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+#form-delete[data-armed="1"] { background: var(--danger); color: var(--bg); }
+
+.invite-title {
+  font-family: var(--cond); font-weight: 700; font-size: 16px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 8px 0 0;
+}
+#invite-form { display: flex; gap: 8px; }
+#invite-form input {
+  flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--ink); font: inherit; font-size: 16px; padding: 12px; min-height: 48px;
+}
+#invite-form button { padding: 0 16px; min-height: 48px; }

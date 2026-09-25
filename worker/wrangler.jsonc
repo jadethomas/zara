@@ -29,8 +29,20 @@
   // Neither value is a secret: the team domain is in every Access login URL
   // and the AUD is an identifier, not a credential. They pin which Access
   // application's JWTs the Worker accepts.
+  // Secrets (never here): CF_API_TOKEN — scoped to Access-group edits only,
+  // for /api/track/invite; RESEND_API_KEY — the invite email.
+  //   npx wrangler secret put CF_API_TOKEN
+  //   npx wrangler secret put RESEND_API_KEY
   "vars": {
     "ACCESS_TEAM_DOMAIN": "super-thunder-8607.cloudflareaccess.com",
-    "ACCESS_AUD": "388c6a70b8b14805f45900054214c2b5ee7228ba55161ff9e9253633a586f7aa"
+    "ACCESS_AUD": "388c6a70b8b14805f45900054214c2b5ee7228ba55161ff9e9253633a586f7aa",
+    // Invite plumbing. Only INVITE_OWNER may call /api/track/invite; invited
+    // emails land in this Access group, which is what actually grants access.
+    "INVITE_OWNER": "jt.wmt.nz@gmail.com",
+    "CF_ACCOUNT_ID": "8d06ce22491730cc465d147a156c9da8",
+    "ACCESS_GROUP_ID": "23ecdbd8-e9fb-4819-a7ec-a8be29ac348a",
+    // Must be on a Resend-verified sending domain; send.athomeinteriors.nz is
+    // the account's verified one (same arrangement as jett-seo-tracker).
+    "MAIL_FROM": "Zara Stats <zara-stats@send.athomeinteriors.nz>"
   }
 }

@@ -11,6 +11,8 @@
  *     GET  /api/track/games                             includes soft-deleted state
  *     GET  /api/track/games/:id/events
  *     POST /api/track/sync                              idempotent upsert batch
+ *     POST /api/track/purge                             hard-delete one game + events
+ *     POST /api/track/invite                            owner only: grant Access + email instructions
  */
 
 import { requireAccess } from "./access.js";
@@ -129,7 +131,7 @@ async function privateRoutes(request, env, url) {
   }
 
   if (url.pathname === "/api/track/whoami" && request.method === "GET") {
-    return json({ email: who.email });
+    return json({ email: who.email, can_invite: who.email === env.INVITE_OWNER });
   }
   if (url.pathname === "/api/track/games" && request.method === "GET") {
     return json(await db.gamesWithBox(env.DB, { includePrivate: true }));
@@ -150,5 +152,102 @@ async function privateRoutes(request, env, url) {
     const applied = await db.applySync(env.DB, body, who.email);
     return json({ ok: true, applied });
   }
+  if (url.pathname === "/api/track/purge" && request.method === "POST") {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return err("body must be JSON", 400);
+    }
+    if (!ID_RE.test(body?.id ?? "")) return err("id must be a UUID", 400);
+    await db.purgeGame(env.DB, body.id);
+    console.log(JSON.stringify({ msg: "game purged", id: body.id, by: who.email }));
+    return json({ ok: true });
+  }
+  if (url.pathname === "/api/track/invite" && request.method === "POST") {
+    // Inviting grants access to the tracker — owner only, regardless of who
+    // else is in the Access group.
+    if (who.email !== env.INVITE_OWNER) return err("only the owner can invite", 403);
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return err("body must be JSON", 400);
+    }
+    const email = String(body?.email ?? "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return err("that does not look like an email address", 400);
+    }
+    if (!env.CF_API_TOKEN || !env.RESEND_API_KEY) return err("invite not configured", 503);
+    const result = await invite(env, email, who.email);
+    return json(result);
+  }
   return err("not found", 404);
+}
+
+/**
+ * Add an email to the "Zara stat trackers" Access group (idempotent), then
+ * send them instructions. Group membership is the real grant — the email is
+ * a courtesy, so a send failure is reported, not fatal.
+ */
+async function invite(env, email, invitedBy) {
+  const groupUrl = "https://api.cloudflare.com/client/v4/accounts/"
+    + `${env.CF_ACCOUNT_ID}/access/groups/${env.ACCESS_GROUP_ID}`;
+  const auth = { authorization: `Bearer ${env.CF_API_TOKEN}` };
+
+  const cur = await (await fetch(groupUrl, { headers: auth })).json();
+  if (!cur.success) throw new Error(`Access group read failed: ${JSON.stringify(cur.errors)}`);
+  const include = cur.result.include ?? [];
+  const already = include.some((r) => r.email?.email?.toLowerCase() === email);
+  if (!already) {
+    const upd = await (await fetch(groupUrl, {
+      method: "PUT",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: cur.result.name, include: [...include, { email: { email } }] }),
+    })).json();
+    if (!upd.success) throw new Error(`Access group update failed: ${JSON.stringify(upd.errors)}`);
+  }
+
+  const sent = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      from: env.MAIL_FROM,
+      to: [email],
+      reply_to: invitedBy,
+      subject: "You can now track Zara's game stats",
+      text: [
+        `${invitedBy} has added you to Zara Thomas's basketball stat tracker.`,
+        "",
+        "Getting set up (2 minutes, on your phone):",
+        "",
+        "1. Open https://zara-thomas.com/track",
+        `2. Sign in as ${email} — use Google, or have a one-time code emailed to you. No password to create.`,
+        "3. In Safari, tap Share → \u201cAdd to Home Screen\u201d. It opens like an app from then on.",
+        "",
+        "Using it:",
+        "- Tap \u201c+ New game\u201d before tip-off, then log each play with the big buttons.",
+        "- The undo bar at the bottom reverses the last tap.",
+        "- It works with no signal at the stadium — everything saves on your phone and syncs later.",
+        "- One person tracks a given game. If someone else is already on it, sit this one out.",
+        "",
+        "Everything logged appears on the public report at https://zara-thomas.com/stats",
+        "",
+        `Questions — just reply, this goes to ${invitedBy}.`,
+      ].join("\n"),
+    }),
+  });
+  if (!sent.ok) {
+    console.error(JSON.stringify({ msg: "invite email failed", status: sent.status, to: email }));
+  }
+  console.log(JSON.stringify({ msg: "invite", to: email, by: invitedBy, added: !already, emailed: sent.ok }));
+  return {
+    ok: true,
+    added: !already,
+    emailed: sent.ok,
+    message: already
+      ? (sent.ok ? "Already had access — instructions re-sent." : "Already had access; the email failed, but they can sign in.")
+      : (sent.ok ? `Invited — ${email} has access and instructions are on the way.`
+                 : `Access granted, but the email failed to send — tell ${email} to open zara-thomas.com/track and sign in.`),
+  };
 }

@@ -64,6 +64,22 @@ policy "Zara stat trackers — allow" → Access **group** `Zara stat trackers`
 email to that group** (Zero Trust → My Team → Groups) — nothing else. One
 person tracks a given game; two people logging the same game double the stats.
 
+**Deleting games**: in-app delete is a two-step tap (no confirm() — a native
+dialog blocks the page) and is a soft delete: the game moves to "Recently
+deleted" on the games list, restorable with all its stats. "Delete forever"
+calls `POST /api/track/purge`, which hard-deletes the game and its events from
+D1. The private games listing includes soft-deleted rows on purpose — pull
+tells "deleted (restorable)" from "purged (gone)" by presence in that list.
+Sync skips events whose game was purged (`skipped_events` in the response)
+so an orphaned event can't poison a client's retry queue.
+
+**Inviting a tracker**: the games list shows "Invite a tracker" to
+`INVITE_OWNER` only; `POST /api/track/invite` adds the email to the Access
+group via the CF API (secret `CF_API_TOKEN`, scoped to Access-group edits) and
+emails instructions via Resend (secret `RESEND_API_KEY`, sender on
+`send.athomeinteriors.nz` like jett). Until CF_API_TOKEN is set the endpoint
+answers 503 "invite not configured".
+
 The Worker also verifies the `Cf-Access-Jwt-Assertion` JWT (signature against
 the team certs, issuer, AUD) on every `/api/track/*` request and stamps
 `recorded_by` from its email claim — Access at the edge is the wall, the JWT

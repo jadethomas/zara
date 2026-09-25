@@ -76,6 +76,7 @@ function boxScore(events) {
 const chip = $("#sync-chip");
 const authBanner = $("#auth-banner");
 let syncTimer = null;
+let syncInFlight = false;
 
 function setChip(state, n) {
   chip.className = "chip " + state;
@@ -94,6 +95,16 @@ function scheduleSync(delay = 2500) {
 }
 
 async function sync() {
+  if (syncInFlight) return; // push and pull must not interleave
+  syncInFlight = true;
+  try {
+    await syncOnce();
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+async function syncOnce() {
   const [gs, es] = await Promise.all([getAll("games"), getAll("events")]);
   const games = gs.filter((g) => g.dirty).map(({ dirty, box, ...g }) => g);
   const events = es.filter((e) => e.dirty).map(({ dirty, ...e }) => e);
@@ -110,6 +121,9 @@ async function sync() {
     });
     if (res.type === "opaqueredirect" || res.status === 302) return setChip("auth");
     if (!res.ok) throw new Error(`sync ${res.status}`);
+    const out = await res.json();
+    // The server skips events whose game was purged — drop them for good.
+    for (const id of out.applied?.skipped_events ?? []) await del("events", id);
     // Clear dirty flags only on what was sent — taps that landed mid-flight
     // keep their flag and go next round.
     for (const g of games) {
@@ -129,29 +143,58 @@ async function sync() {
 }
 
 /* Pull games other trackers recorded (and deletions from anywhere). Local
- * dirty rows always win; the server copy lands only over clean rows. */
+ * dirty rows always win; the server copy lands only over clean rows.
+ * Soft-deleted games are KEPT locally so "Recently deleted" can restore them;
+ * a game the server no longer has at all was purged, so the local copy goes. */
 async function pull() {
   try {
     const res = await fetch("/api/track/games", { redirect: "manual" });
     if (res.type === "opaqueredirect" || !res.ok) return;
     const server = await res.json();
+    const serverIds = new Set(server.map((g) => g.id));
     for (const sg of server) {
       const local = await getOne("games", sg.id);
       if (local?.dirty) continue;
-      if (sg.deleted) {
-        if (local) await del("games", sg.id);
-        continue;
-      }
       const { p2m, p2x, p3m, p3x, ftm, ftx, orb, drb, ast, stl, blk, tov, pf, pts, reb, fg_pct } = sg;
       await put("games", {
         id: sg.id, date: sg.date, opponent: sg.opponent, competition: sg.competition,
         home_away: sg.home_away, final_us: sg.final_us, final_them: sg.final_them,
-        season: sg.season, updated_at: sg.updated_at, deleted: 0, dirty: 0,
+        season: sg.season, updated_at: sg.updated_at, deleted: sg.deleted ? 1 : 0, dirty: 0,
         box: { p2m, p2x, p3m, p3x, ftm, ftx, orb, drb, ast, stl, blk, tov, pf, pts, reb, fg_pct },
       });
     }
+    for (const lg of await getAll("games")) {
+      if (!lg.dirty && !serverIds.has(lg.id)) await removeGameLocally(lg.id);
+    }
     if (view === "list") renderList();
   } catch { /* offline — fine */ }
+}
+
+async function removeGameLocally(id) {
+  for (const e of await eventsFor(id)) await del("events", e.id);
+  await del("games", id);
+  const saved = await metaGet("view", null);
+  if (saved?.id === id) await metaSet("view", { name: "list" });
+}
+
+/* Two-step buttons: first tap arms, second tap within 3.5s fires. The native
+ * confirm() dialog is deliberately avoided — it blocks the whole page. */
+function armable(btn, label, confirmLabel, fn) {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.armed === "1") {
+      clearTimeout(btn._armT);
+      disarm(btn, label);
+      fn();
+    } else {
+      btn.dataset.armed = "1";
+      btn.textContent = confirmLabel;
+      btn._armT = setTimeout(() => disarm(btn, label), 3500);
+    }
+  });
+}
+function disarm(btn, label) {
+  btn.dataset.armed = "";
+  btn.textContent = label;
 }
 
 $("#relogin").addEventListener("click", () => location.reload());
@@ -189,9 +232,10 @@ async function openList() {
 }
 
 async function renderList() {
-  const games = (await getAll("games"))
-    .filter((g) => !g.deleted)
+  const all = (await getAll("games"))
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const games = all.filter((g) => !g.deleted);
+  renderDeleted(all.filter((g) => g.deleted));
   const ul = $("#game-list");
   ul.textContent = "";
   for (const g of games) {
@@ -215,6 +259,58 @@ async function renderList() {
   }
 }
 
+function renderDeleted(binned) {
+  $("#deleted-wrap").hidden = binned.length === 0;
+  const ul = $("#deleted-list");
+  ul.textContent = "";
+  for (const g of binned) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "deleted-row";
+    const info = document.createElement("div");
+    info.className = "who-game";
+    const b = document.createElement("b");
+    b.textContent = (g.home_away === "away" ? "at " : "vs ") + g.opponent;
+    const sp = document.createElement("span");
+    sp.textContent = g.date + (g.dirty ? " · not synced" : "");
+    info.append(b, sp);
+    const restore = document.createElement("button");
+    restore.className = "mini-btn";
+    restore.textContent = "Restore";
+    restore.addEventListener("click", async () => {
+      await put("games", { ...g, deleted: 0, updated_at: nowISO(), dirty: 1 });
+      scheduleSync();
+      renderList();
+    });
+    const forever = document.createElement("button");
+    forever.className = "mini-btn danger";
+    forever.textContent = "Delete forever";
+    armable(forever, "Delete forever", "Tap again — permanent", () => purgeForever(g));
+    row.append(info, restore, forever);
+    li.appendChild(row);
+    ul.appendChild(li);
+  }
+}
+
+/* Hard delete on the server, then locally. Needs a connection and a login —
+ * if either is missing the game just stays in Recently deleted, untouched. */
+async function purgeForever(g) {
+  try {
+    const res = await fetch("/api/track/purge", {
+      method: "POST",
+      redirect: "manual",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: g.id }),
+    });
+    if (res.type === "opaqueredirect" || res.status === 302) return setChip("auth");
+    if (!res.ok) throw new Error(`purge ${res.status}`);
+    await removeGameLocally(g.id);
+    renderList();
+  } catch {
+    setChip("offline");
+  }
+}
+
 $("#new-game").addEventListener("click", () => openForm(null));
 
 /* ---------- form (new / edit) ---------- */
@@ -229,6 +325,8 @@ async function openForm(gameId) {
   setTitle(g ? "Game details" : "New game");
   $("#form-save").textContent = g ? "Save" : "Start tracking";
   $("#form-delete").hidden = !g;
+  clearTimeout($("#form-delete")._armT);
+  disarm($("#form-delete"), "Delete this game");
   f.date.value = g?.date ?? todayLocal();
   f.opponent.value = g?.opponent ?? "";
   f.competition.value = g?.competition ?? "";
@@ -289,10 +387,11 @@ $("#game-form").addEventListener("submit", async (ev) => {
   openGame(g.id);
 });
 
-$("#form-delete").addEventListener("click", async () => {
+armable($("#form-delete"), "Delete this game", "Tap again to delete", async () => {
   const g = await getOne("games", editingId);
   if (!g) return;
-  if (!confirm(`Delete the ${g.date} game vs ${g.opponent}? This removes it from the public stats too.`)) return;
+  // Soft delete: it moves to "Recently deleted" on the games list, where it
+  // can be restored — or purged for good.
   await put("games", { ...g, deleted: 1, updated_at: nowISO(), dirty: 1 });
   scheduleSync();
   openList();
@@ -409,6 +508,42 @@ $("#edit-game").addEventListener("click", () => openForm(curGame.id));
   cb.addEventListener("change", () => metaSet("locate", cb.checked));
 })();
 
+/* ---------- invite (owner only — the server enforces it too) ---------- */
+
+async function initInvite() {
+  try {
+    const res = await fetch("/api/track/whoami", { redirect: "manual" });
+    if (res.type === "opaqueredirect" || !res.ok) return;
+    const who = await res.json();
+    $("#invite-wrap").hidden = !who.can_invite;
+  } catch { /* offline — section stays hidden */ }
+}
+
+$("#invite-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  const st = $("#invite-status");
+  st.textContent = "Sending…";
+  try {
+    const res = await fetch("/api/track/invite", {
+      method: "POST",
+      redirect: "manual",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: f.email.value.trim() }),
+    });
+    if (res.type === "opaqueredirect" || res.status === 302) {
+      setChip("auth");
+      st.textContent = "Signed out — sign in and try again.";
+      return;
+    }
+    const out = await res.json();
+    st.textContent = res.ok ? out.message : (out.error || "Invite failed — try again.");
+    if (res.ok) f.reset();
+  } catch {
+    st.textContent = "No connection — try again when online.";
+  }
+});
+
 /* ============================ boot ============================ */
 
 (async () => {
@@ -422,6 +557,7 @@ $("#edit-game").addEventListener("click", () => openForm(curGame.id));
     await openList();
   }
   sync();
+  initInvite();
 })();
 
 // Leaving the tracking screen clears the restore point.

@@ -2,7 +2,7 @@
  * Bump VERSION whenever any shell file changes, or installed phones keep
  * running the old app. (_headers serves this file no-cache so the browser
  * re-checks it on every load; the shell files are what get versioned.) */
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = `zara-track-${VERSION}`;
 const SHELL = [
   "/track/",

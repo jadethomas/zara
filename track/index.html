@@ -38,6 +38,22 @@
     <input type="checkbox" id="opt-locate">
     Ask for shot location on the court after each shot
   </label>
+
+  <details id="deleted-wrap" hidden>
+    <summary>Recently deleted</summary>
+    <ul id="deleted-list" class="game-list"></ul>
+    <p class="hint">Restore brings a game and all its stats back. Delete forever
+      removes it from the database for everyone — that cannot be undone.</p>
+  </details>
+
+  <section id="invite-wrap" hidden>
+    <h3 class="invite-title">Invite a tracker</h3>
+    <form id="invite-form">
+      <input type="email" name="email" placeholder="their@email.com" required maxlength="254" autocomplete="off">
+      <button class="btn-primary" type="submit">Send invite</button>
+    </form>
+    <p class="hint" id="invite-status">They get an email with instructions and can sign in with Google or an emailed code — no password to set up.</p>
+  </section>
 </main>
 
 <!-- ============ New / edit game ============ -->
