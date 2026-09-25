@@ -2,7 +2,8 @@
      are validated against the dark surface (CVD + contrast) — change them only
      in a pair. Identity is never color-alone: two-series charts carry a legend
      and direct end labels; the shot chart encodes make/miss by shape too. */
-  .stats-page { display: flex; flex-direction: column; gap: 0; }
+  [hidden] { display: none !important; } /* .filters/.tiles set display and would defeat the attribute */
+.stats-page { display: flex; flex-direction: column; gap: 0; }
   .filters { display: flex; gap: 12px; flex-wrap: wrap; margin: 6px 0 6px; }
   .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
   .filters select {
