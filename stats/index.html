@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-V5HT5WD4TB"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-V5HT5WD4TB');
+</script>
+<title>Zara Thomas — Season Stats</title>
+<meta name="description" content="Game-by-game statistics for Zara Thomas — season averages, box scores, shooting trends and shot chart.">
+<link rel="canonical" href="https://zara-thomas.com/stats/">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/apple-touch-icon.png" type="image/png" sizes="180x180">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/stats/stats.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="shell header-inner">
+    <a href="/" class="wordmark">Zara <span>Thomas</span></a>
+    <nav class="nav">
+      <a href="/">Profile</a>
+      <a href="/#reel">Reel</a>
+      <a href="/#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main class="shell stats-page">
+  <section class="section">
+    <div class="section-head">
+      <h1 class="section-title">Season stats</h1>
+      <span class="section-meta" id="scope-label">all games</span>
+    </div>
+
+    <div class="filters" id="filters" hidden>
+      <label>Season
+        <select id="f-season"><option value="">All seasons</option></select>
+      </label>
+      <label>Competition
+        <select id="f-comp"><option value="">All competitions</option></select>
+      </label>
+    </div>
+
+    <div id="empty" class="empty" hidden>
+      <p>No games logged yet — stats will appear here as the season is tracked, game by game.</p>
+    </div>
+
+    <div id="tiles" class="tiles" hidden></div>
+    <p class="foot-note" id="tiles-note" hidden>Per-game averages. Shooting percentages are season totals (makes ÷ attempts), not averaged game percentages.</p>
+  </section>
+
+  <section class="section" id="charts-section" hidden>
+    <div class="charts">
+      <figure class="chart" id="fig-pts">
+        <figcaption>Points by game</figcaption>
+        <div class="tt"></div>
+      </figure>
+      <figure class="chart" id="fig-shooting">
+        <figcaption>Shooting
+          <span class="legend">
+            <span><i class="sw-fg"></i>FG%</span>
+            <span><i class="sw-3p"></i>3P%</span>
+          </span>
+        </figcaption>
+        <div class="tt"></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="shots-section" hidden>
+    <div class="section-head">
+      <h2 class="section-title">Shot chart</h2>
+      <span class="section-meta" id="shots-meta"></span>
+    </div>
+    <figure class="chart courtfig" id="fig-court"></figure>
+    <div class="shot-legend"><span>● made</span><span>✕ missed</span></div>
+  </section>
+
+  <section class="section" id="log-section" hidden>
+    <h2 class="section-title section-title-solo">Game log</h2>
+    <div class="gamelog-wrap">
+      <table class="gamelog">
+        <thead><tr>
+          <th>Date</th><th>Opponent</th><th>Competition</th><th>Score</th>
+          <th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th>
+          <th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th><th class="num">PF</th>
+          <th class="num">FG</th><th class="num">3P</th><th class="num">FT</th>
+        </tr></thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+    <p class="foot-note">Every number is recomputed from individually logged plays — full-game film available on request.</p>
+  </section>
+
+  <footer class="site-footer">
+    <span>© 2026 Zara Thomas</span><span>zara-thomas.com</span>
+  </footer>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const SERIES = { green: "#16a34a", blue: "#0284c7" };
+const fmt = (v, dash = "–") => (v == null ? dash : v);
+
+async function load() {
+  const season = $("#f-season").value;
+  const comp = $("#f-comp").value;
+  const qs = new URLSearchParams();
+  if (season) qs.set("season", season);
+  if (comp) qs.set("competition", comp);
+  const q = qs.toString() ? "?" + qs.toString() : "";
+  const [summary, games, shots] = await Promise.all([
+    fetch("/api/stats/summary" + q).then((r) => r.json()),
+    fetch("/api/stats/games" + q).then((r) => r.json()),
+    fetch("/api/stats/shots" + q).then((r) => r.json()),
+  ]);
+  render(summary, games, shots);
+}
+
+function option(v) { const o = document.createElement("option"); o.value = v; o.textContent = v; return o; }
+
+function render(summary, games, shots) {
+  // filters (populated once)
+  const fs = $("#f-season");
+  if (fs.options.length === 1 && summary.filters.seasons.length) {
+    summary.filters.seasons.forEach((s) => fs.appendChild(option(s)));
+    summary.filters.competitions.forEach((c) => $("#f-comp").appendChild(option(c)));
+  }
+  $("#filters").hidden = !summary.filters.seasons.length;
+  const bits = [summary.applied.season, summary.applied.competition].filter(Boolean);
+  $("#scope-label").textContent = bits.length ? bits.join(" · ") : "all games";
+
+  const has = summary.games > 0;
+  $("#empty").hidden = has;
+  $("#tiles").hidden = $("#tiles-note").hidden = !has;
+  $("#log-section").hidden = !has;
+  $("#charts-section").hidden = games.length < 2;
+  $("#shots-section").hidden = shots.length === 0;
+  if (!has) return;
+
+  // ---- tiles ----
+  const a = summary.averages;
+  const tiles = [
+    ["GP", summary.games, false], ["PPG", a.ppg, true], ["RPG", a.rpg, false],
+    ["APG", a.apg, false], ["SPG", a.spg, false], ["BPG", a.bpg, false],
+    ["TO", a.topg, false], ["FG%", a.fg_pct, false], ["3P%", a.p3_pct, false], ["FT%", a.ft_pct, false],
+  ];
+  $("#tiles").textContent = "";
+  for (const [label, val, hero] of tiles) {
+    const d = document.createElement("div");
+    d.className = "tile" + (hero ? " tile-hero" : ""); // not "hero": styles.css owns that name
+    const b = document.createElement("b"); b.textContent = fmt(val);
+    const s = document.createElement("span"); s.textContent = label;
+    d.append(b, s);
+    $("#tiles").appendChild(d);
+  }
+
+  // ---- game log ---- (oldest last; API returns newest first already)
+  const tbody = $("#log-body");
+  tbody.textContent = "";
+  for (const g of games) {
+    const tr = document.createElement("tr");
+    const cells = [];
+    const td = (txt, cls) => { const c = document.createElement("td"); c.textContent = txt; if (cls) c.className = cls; cells.push(c); return c; };
+    td(g.date);
+    td((g.home_away === "away" ? "at " : "vs ") + g.opponent, "opp");
+    td(g.competition || "—");
+    const score = td("", "");
+    if (g.final_us != null && g.final_them != null) {
+      const wl = document.createElement("span");
+      wl.className = "wl " + (g.final_us > g.final_them ? "w" : "l");
+      wl.textContent = g.final_us > g.final_them ? "W" : "L";
+      score.append(wl, `${g.final_us}–${g.final_them}`);
+    } else score.textContent = "—";
+    td(g.pts, "num"); td(g.reb, "num"); td(g.ast, "num");
+    td(g.stl, "num"); td(g.blk, "num"); td(g.tov, "num"); td(g.pf, "num");
+    td(`${g.fgm}/${g.fga}`, "num"); td(`${g.p3m}/${g.p3a}`, "num"); td(`${g.ftm}/${g.fta}`, "num");
+    tr.append(...cells);
+    tbody.appendChild(tr);
+  }
+
+  // ---- charts ---- (chronological)
+  const chrono = [...games].reverse();
+  drawLines($("#fig-pts"), chrono, [{ key: "pts", color: SERIES.green, label: "PTS" }], { max0: true });
+  drawLines($("#fig-shooting"), chrono, [
+    { key: "fg_pct", color: SERIES.green, label: "FG%" },
+    { key: "p3_pct", color: SERIES.blue, label: "3P%" },
+  ], { yMax: 100 });
+
+  drawCourt(shots);
+  $("#shots-meta").textContent = `${shots.length} located shots`;
+}
+
+/* Minimal line chart: 2px lines, >=8px hover targets, crosshair + tooltip,
+ * direct end labels, recessive grid. One y-axis. */
+function drawLines(fig, games, series, opts = {}) {
+  const old = fig.querySelector("svg"); if (old) old.remove();
+  const W = 460, H = 240, P = { t: 14, r: 44, b: 26, l: 34 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  const n = games.length;
+  const vals = series.flatMap((s) => games.map((g) => g[s.key]).filter((v) => v != null));
+  const yMax = opts.yMax ?? Math.max(10, Math.ceil(Math.max(...vals) * 1.15));
+  const yMin = 0;
+  const x = (i) => P.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const y = (v) => P.t + ih - ((v - yMin) / (yMax - yMin)) * ih;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  let inner = "";
+  // grid: 4 recessive lines + labels
+  for (let i = 0; i <= 4; i++) {
+    const v = yMin + ((yMax - yMin) * i) / 4;
+    const gy = y(v);
+    inner += `<line x1="${P.l}" y1="${gy}" x2="${W - P.r}" y2="${gy}" stroke="#232b3a" stroke-width="1"/>`;
+    inner += `<text x="${P.l - 6}" y="${gy + 3}" text-anchor="end" font-size="10" fill="#8791a3">${Math.round(v)}</text>`;
+  }
+  for (const s of series) {
+    const pts = games.map((g, i) => [x(i), g[s.key] == null ? null : y(g[s.key])]);
+    const path = pts.filter((p) => p[1] != null)
+      .map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+    inner += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    pts.forEach((p, i) => {
+      if (p[1] == null) return;
+      inner += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${s.color}"/>`;
+    });
+    // direct end label
+    const lastIdx = [...games.keys()].reverse().find((i) => games[i][s.key] != null);
+    if (lastIdx != null) {
+      inner += `<text x="${x(lastIdx) + 8}" y="${y(games[lastIdx][s.key]) + 3}" font-size="11" font-weight="600" fill="${s.color}">${s.label}</text>`;
+    }
+  }
+  inner += `<line id="xh" y1="${P.t}" y2="${P.t + ih}" stroke="#8791a3" stroke-width="1" opacity="0" pointer-events="none"/>`;
+  svg.innerHTML = inner;
+  fig.appendChild(svg);
+
+  // hover: nearest game on x
+  const tt = fig.querySelector(".tt");
+  const xh = svg.querySelector("#xh");
+  svg.addEventListener("pointermove", (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round(((px - P.l) / iw) * (n - 1))));
+    const g = games[i];
+    xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("opacity", "0.4");
+    tt.style.display = "block";
+    // Clamp inside the figure: unclamped it clips at the card's edges.
+    const lx = (x(i) / W) * r.width;
+    tt.style.left = Math.min(Math.max(lx, 70), r.width - 70) + "px";
+    tt.style.top = ((P.t + 8) / H) * r.height + "px";
+    tt.innerHTML = "";
+    const head = document.createElement("b");
+    head.textContent = `${g.date} · ${g.opponent}`;
+    tt.appendChild(head);
+    for (const s of series) {
+      const row = document.createElement("div");
+      row.textContent = `${s.label}: ${fmt(g[s.key])}`;
+      tt.appendChild(row);
+    }
+  });
+  svg.addEventListener("pointerleave", () => { tt.style.display = "none"; xh.setAttribute("opacity", "0"); });
+}
+
+/* Half court, same coordinate system the tracker records in:
+ * x 0..1 across the width, y 0 at the baseline, 1 at halfway. */
+function drawCourt(shots) {
+  const fig = $("#fig-court");
+  fig.textContent = "";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 150 140");
+  let inner = `
+    <rect width="150" height="140" class="court-floor" rx="3"/>
+    <line x1="0" y1="1" x2="150" y2="1" class="court-line"/>
+    <rect x="50" y="1" width="50" height="58" class="court-line" fill="none"/>
+    <circle cx="75" cy="59" r="18" class="court-line" fill="none"/>
+    <circle cx="75" cy="16" r="4.5" class="court-hoop"/>
+    <line x1="66" y1="12" x2="84" y2="12" class="court-line"/>
+    <path d="M 8 1 L 8 30 A 67 67 0 0 0 142 30 L 142 1" class="court-line" fill="none"/>
+    <line x1="0" y1="139" x2="150" y2="139" class="court-line"/>`;
+  for (const s of shots) {
+    const cx = (s.x * 150).toFixed(1), cy = (s.y * 140).toFixed(1);
+    if (s.made) {
+      inner += `<circle cx="${cx}" cy="${cy}" r="2.6" class="shot-made"><title>made ${s.three ? "3" : "2"} · ${s.date}</title></circle>`;
+    } else {
+      inner += `<g class="shot-miss"><line x1="${cx - 2}" y1="${cy - 2}" x2="${+cx + 2}" y2="${+cy + 2}"/><line x1="${cx - 2}" y1="${+cy + 2}" x2="${+cx + 2}" y2="${cy - 2}"/><title>missed ${s.three ? "3" : "2"} · ${s.date}</title></g>`;
+    }
+  }
+  svg.innerHTML = inner;
+  fig.appendChild(svg);
+}
+
+$("#f-season").addEventListener("change", load);
+$("#f-comp").addEventListener("change", load);
+load().catch(() => {
+  $("#empty").hidden = false;
+  $("#empty").firstElementChild.textContent = "Stats are temporarily unavailable — try again shortly.";
+});
+</script>
+</body>
+</html>

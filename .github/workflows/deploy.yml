@@ -25,7 +25,7 @@ jobs:
         run: |
           mkdir -p dist
           cp index.html 404.html styles.css _headers dist/
-          [ -d assets ] && cp -R assets dist/ || true
+          cp -R assets track stats dist/
           find dist -type f | sort
 
       - name: Deploy to Pages

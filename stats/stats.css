@@ -1,0 +1,49 @@
+/* Page-specific pieces on top of the site stylesheet. Chart series colors
+     are validated against the dark surface (CVD + contrast) — change them only
+     in a pair. Identity is never color-alone: two-series charts carry a legend
+     and direct end labels; the shot chart encodes make/miss by shape too. */
+  .stats-page { display: flex; flex-direction: column; gap: 0; }
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; margin: 6px 0 6px; }
+  .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+  .filters select {
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; font: inherit; font-size: 15px; padding: 8px 10px; min-width: 160px;
+  }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .tile { background: var(--surface); padding: 14px 8px 12px; text-align: center; }
+  .tile b { display: block; font-family: var(--cond); font-weight: 800; font-size: 30px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .tile.tile-hero b { color: var(--accent); }
+  .tile span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--gap-lg); }
+  figure.chart { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px; position: relative; }
+  figure.chart figcaption { font-family: var(--cond); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: .04em; color: var(--text); margin-bottom: 4px; display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  .legend { display: flex; gap: 14px; font-family: var(--sans); font-weight: 400; font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .tt { position: absolute; pointer-events: none; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 9px; font-size: 12px; color: var(--text-body); white-space: nowrap; transform: translate(-50%, 0); display: none; z-index: 2; }
+  .tt b { color: var(--text); }
+  .gamelog-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .gamelog { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 780px; }
+  .gamelog th { font-family: var(--cond); font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; }
+  .gamelog td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .gamelog tr:last-child td { border-bottom: 0; }
+  .gamelog .opp { color: var(--text); font-weight: 600; }
+  .gamelog .num { text-align: right; }
+  .gamelog th.num { text-align: right; }
+  .wl { font-family: var(--cond); font-weight: 800; padding: 1px 7px; border-radius: 3px; margin-right: 6px; }
+  .wl.w { background: var(--accent); color: var(--bg); }
+  .wl.l { background: var(--surface-2); color: var(--text-muted); }
+  .empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 6px; padding: 40px 20px; text-align: center; color: var(--text-muted); }
+  .courtfig { max-width: 460px; }
+  .court-floor { fill: var(--surface-2); }
+  .court-line { stroke: var(--text-muted); stroke-width: 1; opacity: .5; }
+  .court-hoop { fill: none; stroke: var(--text-muted); stroke-width: 1.4; }
+  .shot-made { fill: #16a34a; }
+  .shot-miss { stroke: #8791a3; stroke-width: 1.6; }
+  .shot-legend { display: flex; gap: 18px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .foot-note { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+
+/* Legend swatches — classes, not style attributes: the site CSP has no
+   unsafe-inline for styles, so a style= attribute is silently dropped. */
+.sw-fg { background: #16a34a; }
+.sw-3p { background: #0284c7; }

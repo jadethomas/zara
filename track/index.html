@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Zara Stats — tracker</title>
+<meta name="robots" content="noindex">
+<link rel="manifest" href="/track/manifest.webmanifest">
+<meta name="theme-color" content="#0b0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zara Stats">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/track/app.css">
+</head>
+<body>
+
+<header class="bar">
+  <button id="back" class="bar-back" hidden aria-label="Back to games">‹</button>
+  <div class="bar-title">
+    <span id="bar-main">Zara Stats</span>
+    <span id="bar-sub"></span>
+  </div>
+  <button id="sync-chip" class="chip" title="Sync status">…</button>
+</header>
+
+<div id="auth-banner" class="auth-banner" hidden>
+  Signed out — <button id="relogin">tap to sign in</button>. Logging still works; it syncs after.
+</div>
+
+<!-- ============ Games list ============ -->
+<main id="view-list" hidden>
+  <button id="new-game" class="btn-primary btn-big">+ New game</button>
+  <ul id="game-list" class="game-list"></ul>
+  <p class="hint">Tap a game to keep tracking it. Swipe nothing — everything is a tap.</p>
+  <label class="settings-row">
+    <input type="checkbox" id="opt-locate">
+    Ask for shot location on the court after each shot
+  </label>
+</main>
+
+<!-- ============ New / edit game ============ -->
+<main id="view-form" hidden>
+  <h2 id="form-title">New game</h2>
+  <form id="game-form">
+    <label>Date <input type="date" name="date" required></label>
+    <label>Opponent <input type="text" name="opponent" required maxlength="120" autocomplete="off"></label>
+    <label>Competition / tournament
+      <input type="text" name="competition" maxlength="120" list="comp-list" autocomplete="off">
+      <datalist id="comp-list"></datalist>
+    </label>
+    <div class="seg" role="radiogroup" aria-label="Venue">
+      <label><input type="radio" name="home_away" value="home" checked><span>Home</span></label>
+      <label><input type="radio" name="home_away" value="away"><span>Away</span></label>
+      <label><input type="radio" name="home_away" value="neutral"><span>Neutral</span></label>
+    </div>
+    <div class="finals">
+      <label>Final — us <input type="number" name="final_us" min="0" max="300" inputmode="numeric"></label>
+      <label>Final — them <input type="number" name="final_them" min="0" max="300" inputmode="numeric"></label>
+    </div>
+    <button type="submit" class="btn-primary btn-big" id="form-save">Start tracking</button>
+    <button type="button" class="btn-danger" id="form-delete" hidden>Delete this game</button>
+  </form>
+  <section id="event-log-wrap" hidden>
+    <h3>Logged events</h3>
+    <ul id="event-log" class="event-log"></ul>
+  </section>
+</main>
+
+<!-- ============ Tracking ============ -->
+<main id="view-game" hidden>
+  <div class="scoreline" id="scoreline"></div>
+
+  <div class="quarters" role="radiogroup" aria-label="Quarter">
+    <button data-q="Q1">Q1</button><button data-q="Q2">Q2</button>
+    <button data-q="Q3">Q3</button><button data-q="Q4">Q4</button>
+    <button data-q="OT">OT</button>
+  </div>
+
+  <div class="pad">
+    <div class="pad-row">
+      <button class="pad-btn made" data-type="p2m">2PT<span>make</span></button>
+      <button class="pad-btn miss" data-type="p2x">2PT<span>miss</span></button>
+    </div>
+    <div class="pad-row">
+      <button class="pad-btn made" data-type="p3m">3PT<span>make</span></button>
+      <button class="pad-btn miss" data-type="p3x">3PT<span>miss</span></button>
+    </div>
+    <div class="pad-row">
+      <button class="pad-btn made" data-type="ftm">FT<span>make</span></button>
+      <button class="pad-btn miss" data-type="ftx">FT<span>miss</span></button>
+    </div>
+    <div class="pad-row">
+      <button class="pad-btn" data-type="orb">OREB</button>
+      <button class="pad-btn" data-type="drb">DREB</button>
+    </div>
+    <div class="pad-row">
+      <button class="pad-btn" data-type="ast">AST</button>
+      <button class="pad-btn" data-type="stl">STL</button>
+    </div>
+    <div class="pad-row">
+      <button class="pad-btn" data-type="blk">BLK</button>
+      <button class="pad-btn" data-type="tov">TO</button>
+    </div>
+    <div class="pad-row">
+      <button class="pad-btn" data-type="pf">FOUL</button>
+      <button class="pad-btn alt" id="edit-game">Game details ›</button>
+    </div>
+  </div>
+
+  <button id="undo" class="undo" disabled>Nothing to undo</button>
+</main>
+
+<!-- ============ Shot location overlay ============ -->
+<div id="court-overlay" class="overlay" hidden>
+  <p class="overlay-title" id="court-title">Where from?</p>
+  <svg id="court" viewBox="0 0 150 140" aria-label="Half court — tap the shot location">
+    <rect x="0" y="0" width="150" height="140" class="court-floor"/>
+    <line x1="0" y1="1" x2="150" y2="1" class="court-line"/>
+    <rect x="50" y="1" width="50" height="58" class="court-line" fill="none"/>
+    <circle cx="75" cy="59" r="18" class="court-line" fill="none"/>
+    <circle cx="75" cy="16" r="4.5" class="court-hoop"/>
+    <line x1="66" y1="12" x2="84" y2="12" class="court-line"/>
+    <path d="M 8 1 L 8 30 A 67 67 0 0 0 142 30 L 142 1" class="court-line court-arc" fill="none"/>
+    <line x1="0" y1="139" x2="150" y2="139" class="court-line"/>
+  </svg>
+  <button id="court-skip" class="btn-ghost">Log without location</button>
+</div>
+
+<script src="/track/app.js"></script>
+</body>
+</html>

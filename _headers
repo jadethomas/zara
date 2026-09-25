@@ -6,3 +6,8 @@
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.googletagmanager.com https://*.google-analytics.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://*.hudl.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# The tracker's service worker: always revalidated, so a new deploy reaches
+# phones that saved the app; the shell files it caches are versioned inside it.
+/track/sw.js
+  Cache-Control: no-cache

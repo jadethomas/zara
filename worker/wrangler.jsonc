@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zara-stats-api",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-20",
+  "observability": { "enabled": true, "traces": { "enabled": true } },
+
+  // Off, same lesson as jett-seo-tracker: the Access application covers
+  // zara-thomas.com/track and zara-thomas.com/api/track — a live
+  // zara-stats-api.<subdomain>.workers.dev would be a second door into the
+  // write endpoints that no Access policy watches. The Worker does verify the
+  // Access JWT itself, so the door is locked, but there is no reason to have it.
+  "workers_dev": false,
+
+  // The zone serves the static site from Cloudflare Pages; this route
+  // intercepts only /api/*. Everything else falls through to Pages.
+  "routes": [
+    { "pattern": "zara-thomas.com/api/*", "zone_name": "zara-thomas.com" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zara-stats",
+      "database_id": "98db5e1a-3df4-47c5-b39f-b47ed62687bb"
+    }
+  ],
+
+  // Neither value is a secret: the team domain is in every Access login URL
+  // and the AUD is an identifier, not a credential. They pin which Access
+  // application's JWTs the Worker accepts.
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "super-thunder-8607.cloudflareaccess.com",
+    "ACCESS_AUD": "388c6a70b8b14805f45900054214c2b5ee7228ba55161ff9e9253633a586f7aa"
+  }
+}
