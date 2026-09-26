@@ -231,6 +231,9 @@ img { max-width: 100%; }
   line-height: 1;
 }
 .stat-value-accent { color: var(--accent); }
+/* Word values (Wellington, Jr Tall Ferns): smaller than the numerals, or a
+   seven-tile row clips them on laptop widths. */
+.stat-value-text { font-size: 24px; line-height: 1.15; }
 .stat-sub {
   white-space: nowrap; /* '188 cm' wraps as a unit, never mid-value */
   font-size: 18px;
