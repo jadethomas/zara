@@ -30,9 +30,12 @@
   // and the AUD is an identifier, not a credential. They pin which Access
   // application's JWTs the Worker accepts.
   // Secrets (never here): CF_API_TOKEN — scoped to Access-group edits only,
-  // for /api/track/invite; RESEND_API_KEY — the invite email.
+  // for /api/track/invite; RESEND_API_KEY — the invite email; ANTHROPIC_API_KEY
+  // — box-score import via the Claude API (/api/track/import answers 503
+  // until it is set).
   //   npx wrangler secret put CF_API_TOKEN
   //   npx wrangler secret put RESEND_API_KEY
+  //   npx wrangler secret put ANTHROPIC_API_KEY
   "vars": {
     "ACCESS_TEAM_DOMAIN": "super-thunder-8607.cloudflareaccess.com",
     "ACCESS_AUD": "388c6a70b8b14805f45900054214c2b5ee7228ba55161ff9e9253633a586f7aa",
@@ -43,6 +46,9 @@
     "ACCESS_GROUP_ID": "23ecdbd8-e9fb-4819-a7ec-a8be29ac348a",
     // Must be on a Resend-verified sending domain; send.athomeinteriors.nz is
     // the account's verified one (same arrangement as jett-seo-tracker).
-    "MAIL_FROM": "Zara Stats <zara-stats@send.athomeinteriors.nz>"
+    "MAIL_FROM": "Zara Stats <zara-stats@send.athomeinteriors.nz>",
+    // Which jersey number the box-score import looks for when the sheet has
+    // no matching name.
+    "ZARA_JERSEY": "13"
   }
 }

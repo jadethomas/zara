@@ -232,6 +232,7 @@ img { max-width: 100%; }
 }
 .stat-value-accent { color: var(--accent); }
 .stat-sub {
+  white-space: nowrap; /* '188 cm' wraps as a unit, never mid-value */
   font-size: 18px;
   font-weight: 600;
   color: var(--text-muted);

@@ -49,6 +49,28 @@ Game-stat tracking for recruiting. Three pieces:
   columns — remote schema changes need explicit `ALTER TABLE`.
   `workers_dev` stays false.
 
+**Past-game import** (`POST /api/track/import`): a box-score photo, PDF or
+pasted text goes to the Claude API (model `claude-opus-5`, structured output
+via the SDK's `messages.parse` + zod schema in `worker/src/import.js`), which
+extracts Zara's row (jersey configurable via the `ZARA_JERSEY` var) plus game
+metadata, cross-checks the totals (FGM ≤ FGA, the points identity, the
+rebound split) and returns a draft the tracker shows as an editable review
+form — nothing saves unconfirmed. Needs the `ANTHROPIC_API_KEY` secret (503
+"import not configured" without it); `ANTHROPIC_BASE_URL` is a test seam.
+Confirmed games are `manual = 1`: totals expand into synthetic events
+(quarter Q1, no locations) so every aggregate works unchanged, and the shot
+chart skips them. Minutes played (`games.minutes`) is hand-entered — the
+end-of-game step on tracked games, or the totals form on manual ones.
+
+**Shot-location validation**: `track/shot-geometry.js` (shared with the test
+suite) decides whether a tap is a three using the arc AS DRAWN on the
+tracker court; a mismatched tap is not saved — the overlay offers re-tap or
+switching the shot type. Report definitions: eFG% = (FGM + 0.5 × 3PM) / FGA.
+
+**Tests**: `cd worker && npm test` — node:test suites covering eFG%
+derivation, the shot geometry, and import validation against a mocked
+extraction. Run them before deploying the Worker.
+
 **Totals are always recomputed from `stat_events`** — there is no stored box
 score to drift. Games and events are soft-deleted (`deleted = 1`), never
 removed, so deletes sync like everything else.

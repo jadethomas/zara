@@ -13,9 +13,11 @@
  *     POST /api/track/sync                              idempotent upsert batch
  *     POST /api/track/purge                             hard-delete one game + events
  *     POST /api/track/invite                            owner only: grant Access + email instructions
+ *     POST /api/track/import                            box score photo/PDF/text -> draft game via Claude
  */
 
 import { requireAccess } from "./access.js";
+import { validateImportRequest, extractGame } from "./import.js";
 import * as db from "./db.js";
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -50,6 +52,9 @@ function validateSync(body) {
     for (const k of ["final_us", "final_them"]) {
       const v = g[k];
       if (v != null && (!Number.isInteger(v) || v < 0 || v > 300)) return `bad ${k}`;
+    }
+    if (g.minutes != null && (!Number.isInteger(g.minutes) || g.minutes < 0 || g.minutes > 100)) {
+      return "bad minutes";
     }
   }
   for (const e of events) {
@@ -163,6 +168,26 @@ async function privateRoutes(request, env, url) {
     await db.purgeGame(env.DB, body.id);
     console.log(JSON.stringify({ msg: "game purged", id: body.id, by: who.email }));
     return json({ ok: true });
+  }
+  if (url.pathname === "/api/track/import" && request.method === "POST") {
+    if (!env.ANTHROPIC_API_KEY) return err("import not configured", 503);
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return err("body must be JSON", 400);
+    }
+    const problem = validateImportRequest(body);
+    if (problem) return err(problem, 400);
+    try {
+      const result = await extractGame(env, body);
+      console.log(JSON.stringify({ msg: "import extracted", by: who.email,
+        kind: body.kind, player_found: result.game.player_found, problems: result.problems.length }));
+      return json(result);
+    } catch (e) {
+      console.error(JSON.stringify({ msg: "import failed", kind: body.kind, error: String(e?.stack || e) }));
+      return err("could not read that box score — try a clearer photo, or enter the totals below", 502);
+    }
   }
   if (url.pathname === "/api/track/invite" && request.method === "POST") {
     // Inviting grants access to the tracker — owner only, regardless of who
