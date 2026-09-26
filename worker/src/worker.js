@@ -222,7 +222,7 @@ async function invite(env, email, invitedBy) {
         "Getting set up (2 minutes, on your phone):",
         "",
         "1. Open https://zara-thomas.com/track",
-        `2. Sign in as ${email} — use Google, or have a one-time code emailed to you. No password to create.`,
+        `2. Tap the one-time code option, enter ${email}, and a sign-in code is emailed to you. No password to create.`,
         "3. In Safari, tap Share → \u201cAdd to Home Screen\u201d. It opens like an app from then on.",
         "",
         "Using it:",
