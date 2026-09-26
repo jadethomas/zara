@@ -32,6 +32,7 @@
 <!-- ============ Games list ============ -->
 <main id="view-list" hidden>
   <button id="new-game" class="btn-primary btn-big">+ New game</button>
+  <button id="past-game" class="btn-ghost">Add past game (totals or box score import)</button>
   <ul id="game-list" class="game-list"></ul>
   <p class="hint">Tap a game to keep tracking it. Swipe nothing — everything is a tap.</p>
   <label class="settings-row">
@@ -74,6 +75,7 @@
     <div class="finals">
       <label>Final — us <input type="number" name="final_us" min="0" max="300" inputmode="numeric"></label>
       <label>Final — them <input type="number" name="final_them" min="0" max="300" inputmode="numeric"></label>
+      <label>Minutes played <input type="number" name="minutes" min="0" max="100" inputmode="numeric"></label>
     </div>
     <button type="submit" class="btn-primary btn-big" id="form-save">Start tracking</button>
     <button type="button" class="btn-danger" id="form-delete" hidden>Delete this game</button>
@@ -141,9 +143,70 @@
     <path d="M 8 1 L 8 30 A 67 67 0 0 0 142 30 L 142 1" class="court-line court-arc" fill="none"/>
     <line x1="0" y1="139" x2="150" y2="139" class="court-line"/>
   </svg>
+  <div id="court-warn" class="court-warn" hidden>
+    <p id="court-warn-text"></p>
+    <div class="court-warn-actions">
+      <button id="court-switch" class="btn-primary"></button>
+      <button id="court-retap" class="btn-ghost">Re-tap the location</button>
+    </div>
+  </div>
   <button id="court-skip" class="btn-ghost">Log without location</button>
 </div>
 
+<!-- ============ Past game (import or totals) ============ -->
+<main id="view-import" hidden>
+  <h2 id="import-title">Add past game</h2>
+
+  <section class="import-zone" id="import-zone">
+    <p class="hint">Photograph or upload the box score — or paste its text — and the
+      totals below are filled in for you to check. Nothing saves until you tap Save.</p>
+    <input type="file" id="import-file" accept="image/*,application/pdf" hidden>
+    <div class="import-actions">
+      <button type="button" class="btn-ghost" id="import-pick">Photo / PDF…</button>
+      <button type="button" class="btn-primary" id="import-run" disabled>Read box score</button>
+    </div>
+    <textarea id="import-text" rows="3" placeholder="…or paste the box score text here"></textarea>
+    <p class="hint" id="import-status"></p>
+  </section>
+
+  <div id="import-problems" class="import-problems" hidden></div>
+
+  <form id="import-form">
+    <label>Date <input type="date" name="date" required></label>
+    <label>Opponent <input type="text" name="opponent" required maxlength="120" autocomplete="off"></label>
+    <label>Competition / tournament <input type="text" name="competition" maxlength="120" autocomplete="off"></label>
+    <div class="seg" role="radiogroup" aria-label="Venue">
+      <label><input type="radio" name="home_away" value="home" checked><span>Home</span></label>
+      <label><input type="radio" name="home_away" value="away"><span>Away</span></label>
+      <label><input type="radio" name="home_away" value="neutral"><span>Neutral</span></label>
+    </div>
+    <div class="finals">
+      <label>Final — us <input type="number" name="final_us" min="0" max="300" inputmode="numeric"></label>
+      <label>Final — them <input type="number" name="final_them" min="0" max="300" inputmode="numeric"></label>
+      <label>Minutes played <input type="number" name="minutes" min="0" max="100" inputmode="numeric"></label>
+    </div>
+    <div class="totals-grid">
+      <label>FGM <input type="number" name="fgm" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>FGA <input type="number" name="fga" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>3PM <input type="number" name="p3m" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>3PA <input type="number" name="p3a" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>FTM <input type="number" name="ftm" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>FTA <input type="number" name="fta" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>OREB <input type="number" name="orb" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>DREB <input type="number" name="drb" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>AST <input type="number" name="ast" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>STL <input type="number" name="stl" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>BLK <input type="number" name="blk" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>TOV <input type="number" name="tov" min="0" max="200" value="0" inputmode="numeric"></label>
+      <label>PF <input type="number" name="pf" min="0" max="200" value="0" inputmode="numeric"></label>
+      <div class="totals-pts">= <b id="import-pts">0</b> PTS</div>
+    </div>
+    <button type="submit" class="btn-primary btn-big">Save game</button>
+    <button type="button" class="btn-danger" id="import-delete" hidden>Delete this game</button>
+  </form>
+</main>
+
+<script src="/track/shot-geometry.js"></script>
 <script src="/track/app.js"></script>
 </body>
 </html>

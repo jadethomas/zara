@@ -5,9 +5,15 @@
     "dev": "wrangler dev --port 8788",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute zara-stats --local --file=schema.sql",
-    "db:remote": "wrangler d1 execute zara-stats --remote --file=schema.sql"
+    "db:remote": "wrangler d1 execute zara-stats --remote --file=schema.sql",
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "devDependencies": {
     "wrangler": "^4.141.0"
+  },
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "zod": "^4.6.5"
   }
 }

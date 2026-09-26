@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS games (
   final_us    INTEGER,                    -- entered after the game; NULL until then
   final_them  INTEGER,
   season      TEXT NOT NULL,              -- '2026' — calendar year of date
+  minutes     INTEGER,                    -- minutes played, entered manually; NULL if not recorded
+  manual      INTEGER NOT NULL DEFAULT 0, -- 1 = entered as totals (synthetic events, no shot chart)
   recorded_by TEXT NOT NULL DEFAULT '',   -- Access email, stamped by the Worker
   updated_at  TEXT NOT NULL,              -- ISO; last-writer-wins for metadata edits
   deleted     INTEGER NOT NULL DEFAULT 0

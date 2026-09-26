@@ -159,6 +159,7 @@ async function pull() {
       await put("games", {
         id: sg.id, date: sg.date, opponent: sg.opponent, competition: sg.competition,
         home_away: sg.home_away, final_us: sg.final_us, final_them: sg.final_them,
+        minutes: sg.minutes ?? null, manual: sg.manual ? 1 : 0,
         season: sg.season, updated_at: sg.updated_at, deleted: sg.deleted ? 1 : 0, dirty: 0,
         box: { p2m, p2x, p3m, p3x, ftm, ftx, orb, drb, ast, stl, blk, tov, pf, pts, reb, fg_pct },
       });
@@ -212,7 +213,7 @@ let editingId = null;    // game id in the form, null = new
 
 function show(name) {
   view = name;
-  for (const v of ["list", "form", "game"]) $(`#view-${v}`).hidden = v !== name;
+  for (const v of ["list", "form", "game", "import"]) $(`#view-${v}`).hidden = v !== name;
   $("#back").hidden = name === "list";
 }
 
@@ -253,7 +254,7 @@ async function renderList() {
     btn.querySelector(".opp").textContent = (g.home_away === "away" ? "at " : "vs ") + g.opponent;
     btn.querySelector(".meta").textContent =
       `${g.date}${g.competition ? " · " + g.competition : ""}${g.dirty ? " · not synced" : ""}`;
-    btn.addEventListener("click", () => openGame(g.id));
+    btn.addEventListener("click", () => (g.manual ? openPastGame(g.id) : openGame(g.id)));
     li.appendChild(btn);
     ul.appendChild(li);
   }
@@ -333,6 +334,7 @@ async function openForm(gameId) {
   f.home_away.value = g?.home_away ?? "home";
   f.final_us.value = g?.final_us ?? "";
   f.final_them.value = g?.final_them ?? "";
+  f.minutes.value = g?.minutes ?? "";
 
   // competition suggestions from history
   const comps = [...new Set((await getAll("games")).map((x) => x.competition).filter(Boolean))];
@@ -376,6 +378,7 @@ $("#game-form").addEventListener("submit", async (ev) => {
     home_away: f.home_away.value,
     final_us: f.final_us.value === "" ? null : Number(f.final_us.value),
     final_them: f.final_them.value === "" ? null : Number(f.final_them.value),
+    minutes: f.minutes.value === "" ? null : Number(f.minutes.value),
     season: f.date.value.slice(0, 4),
     updated_at: nowISO(),
     deleted: 0,
@@ -466,19 +469,50 @@ for (const b of document.querySelectorAll(".pad-btn[data-type]")) {
   });
 }
 
+let pendingTap = null; // { x, y, suggested } while a mismatch warning is up
+
 $("#court").addEventListener("click", (ev) => {
   const svg = ev.currentTarget;
   const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(svg.getScreenCTM().inverse());
-  const x = Math.min(1, Math.max(0, pt.x / 150));
-  const y = Math.min(1, Math.max(0, pt.y / 140));
+  const x = Math.round(Math.min(1, Math.max(0, pt.x / 150)) * 1000) / 1000;
+  const y = Math.round(Math.min(1, Math.max(0, pt.y / 140)) * 1000) / 1000;
+  if (!pendingShot) return;
+  // The tap must agree with the logged shot type — a 3PT inside the arc (or a
+  // 2PT beyond it) is not saved until it is corrected or the type is switched.
+  const suggested = shotTypeForLocation(pendingShot, x, y);
+  if (suggested) {
+    pendingTap = { x, y, suggested };
+    const tappedThree = suggested.startsWith("p3");
+    $("#court-warn-text").textContent = tappedThree
+      ? `${LABELS[pendingShot]} is selected, but that tap is outside the three-point line.`
+      : `${LABELS[pendingShot]} is selected, but that tap is inside the three-point line.`;
+    $("#court-switch").textContent = `Log as ${LABELS[suggested]}`;
+    $("#court-warn").hidden = false;
+    return;
+  }
   const type = pendingShot;
   pendingShot = null;
   $("#court-overlay").hidden = true;
-  if (type) logEvent(type, Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000);
+  logEvent(type, x, y);
+});
+
+$("#court-switch").addEventListener("click", () => {
+  const tap = pendingTap;
+  pendingTap = null;
+  pendingShot = null;
+  $("#court-warn").hidden = true;
+  $("#court-overlay").hidden = true;
+  if (tap) logEvent(tap.suggested, tap.x, tap.y);
+});
+$("#court-retap").addEventListener("click", () => {
+  pendingTap = null;
+  $("#court-warn").hidden = true; // overlay stays up for the corrected tap
 });
 $("#court-skip").addEventListener("click", () => {
   const type = pendingShot;
   pendingShot = null;
+  pendingTap = null;
+  $("#court-warn").hidden = true;
   $("#court-overlay").hidden = true;
   if (type) logEvent(type);
 });
@@ -507,6 +541,245 @@ $("#edit-game").addEventListener("click", () => openForm(curGame.id));
   cb.checked = await metaGet("locate", false);
   cb.addEventListener("change", () => metaSet("locate", cb.checked));
 })();
+
+/* ---------- past game: box-score import + totals entry ----------
+ * Games saved here are manual (totals, not event-by-event): the totals are
+ * expanded into synthetic events so every aggregate works unchanged, the
+ * quarter on those events is meaningless (all Q1), and the shot chart skips
+ * the game entirely (manual flag; the events carry no locations anyway). */
+
+const TOTAL_FIELDS = ["fgm", "fga", "p3m", "p3a", "ftm", "fta", "orb", "drb",
+                      "ast", "stl", "blk", "tov", "pf"];
+let pastGameId = null; // editing an existing manual game, else null
+let importFileData = null; // { kind, media_type, data }
+
+async function openPastGame(gameId) {
+  pastGameId = gameId ?? null;
+  importFileData = null;
+  const f = $("#import-form");
+  f.reset();
+  $("#import-status").textContent = "";
+  $("#import-problems").hidden = true;
+  $("#import-zone").hidden = !!gameId; // editing = totals only, no re-import
+  $("#import-run").disabled = true;
+  $("#import-delete").hidden = !gameId;
+  clearTimeout($("#import-delete")._armT);
+  disarm($("#import-delete"), "Delete this game");
+  show("import");
+  $("#import-title").textContent = gameId ? "Past game" : "Add past game";
+  setTitle(gameId ? "Past game" : "Add past game");
+  await metaSet("view", { name: "list" });
+  if (gameId) {
+    const g = await getOne("games", gameId);
+    if (!g) return openList();
+    const box = boxScore(await eventsFor(gameId));
+    f.date.value = g.date;
+    f.opponent.value = g.opponent;
+    f.competition.value = g.competition ?? "";
+    f.home_away.value = g.home_away;
+    f.final_us.value = g.final_us ?? "";
+    f.final_them.value = g.final_them ?? "";
+    f.minutes.value = g.minutes ?? "";
+    for (const k of TOTAL_FIELDS) f[k].value = box[k];
+  } else {
+    f.date.value = todayLocal();
+  }
+  updateImportPts();
+}
+
+function importTotals() {
+  const f = $("#import-form");
+  const t = {};
+  for (const k of TOTAL_FIELDS) t[k] = f[k].value === "" ? 0 : Number(f[k].value);
+  return t;
+}
+
+function updateImportPts() {
+  const t = importTotals();
+  $("#import-pts").textContent = 2 * (t.fgm - t.p3m) + 3 * t.p3m + t.ftm;
+}
+$("#import-form").addEventListener("input", updateImportPts);
+
+/* Same consistency rules the server applies to an extraction. */
+function totalsProblems(t) {
+  const out = [];
+  if (t.fgm > t.fga) out.push("FGM is greater than FGA");
+  if (t.p3m > t.p3a) out.push("3PM is greater than 3PA");
+  if (t.ftm > t.fta) out.push("FTM is greater than FTA");
+  if (t.p3m > t.fgm) out.push("3PM is greater than FGM (threes are part of field goals)");
+  if (t.p3a > t.fga) out.push("3PA is greater than FGA");
+  return out;
+}
+
+function showProblems(problems) {
+  const box = $("#import-problems");
+  box.hidden = problems.length === 0;
+  box.textContent = "";
+  if (!problems.length) return;
+  const ul = document.createElement("ul");
+  for (const msg of problems) {
+    const li = document.createElement("li");
+    li.textContent = msg;
+    ul.appendChild(li);
+  }
+  box.appendChild(ul);
+}
+
+$("#past-game").addEventListener("click", () => openPastGame(null));
+
+/* ----- file pick: images are re-encoded to JPEG via canvas (normalises
+ * iPhone HEIC and shrinks uploads); PDFs pass through as base64. ----- */
+$("#import-pick").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const status = $("#import-status");
+  try {
+    if (file.type === "application/pdf") {
+      if (file.size > 10_000_000) throw new Error("PDF is over 10 MB");
+      importFileData = { kind: "pdf", data: await toBase64(file) };
+    } else {
+      importFileData = { kind: "image", media_type: "image/jpeg", data: await toJpegBase64(file) };
+    }
+    status.textContent = `${file.name} ready — tap Read box score.`;
+    $("#import-run").disabled = false;
+  } catch (e) {
+    importFileData = null;
+    $("#import-run").disabled = !$("#import-text").value.trim();
+    status.textContent = `Could not read that file (${e.message}). Try another, or paste the text.`;
+  }
+});
+$("#import-text").addEventListener("input", () => {
+  $("#import-run").disabled = !importFileData && !$("#import-text").value.trim();
+});
+
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1]);
+    r.onerror = () => reject(new Error("file read failed"));
+    r.readAsDataURL(file);
+  });
+}
+
+async function toJpegBase64(file, maxDim = 2000) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+}
+
+$("#import-run").addEventListener("click", async () => {
+  const status = $("#import-status");
+  const body = importFileData ?? { kind: "text", text: $("#import-text").value.trim() };
+  if (body.kind === "text" && !body.text) return;
+  status.textContent = "Reading the box score…";
+  $("#import-run").disabled = true;
+  try {
+    const res = await fetch("/api/track/import", {
+      method: "POST",
+      redirect: "manual",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.type === "opaqueredirect" || res.status === 302) {
+      setChip("auth");
+      status.textContent = "Signed out — sign in and try again.";
+      return;
+    }
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || `import ${res.status}`);
+    const g = out.game;
+    if (!g.player_found) {
+      status.textContent = "Zara was not found on that sheet — check it is the right game, or enter the totals below.";
+      return;
+    }
+    const f = $("#import-form");
+    if (g.date) f.date.value = g.date;
+    if (g.opponent) f.opponent.value = g.opponent;
+    if (g.competition) f.competition.value = g.competition;
+    if (g.home_away) f.home_away.value = g.home_away;
+    if (g.final_us != null) f.final_us.value = g.final_us;
+    if (g.final_them != null) f.final_them.value = g.final_them;
+    if (g.minutes != null) f.minutes.value = g.minutes;
+    for (const k of TOTAL_FIELDS) if (g[k] != null) f[k].value = g[k];
+    // Sheet showed only total rebounds: leave the split to the human.
+    const problems = [...out.problems];
+    if (g.reb != null && g.orb == null && g.drb == null) {
+      problems.push(`The sheet shows ${g.reb} total rebounds with no offensive/defensive split — divide them below.`);
+    }
+    if (g.notes) problems.push(`Note from the reader: ${g.notes}`);
+    updateImportPts();
+    showProblems(problems);
+    status.textContent = "Check every number against the sheet, then Save.";
+  } catch (e) {
+    status.textContent = `${e.message}. You can still enter the totals below.`;
+  } finally {
+    $("#import-run").disabled = !importFileData && !$("#import-text").value.trim();
+  }
+});
+
+/* ----- save: expand totals into synthetic events ----- */
+$("#import-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  const t = importTotals();
+  const problems = totalsProblems(t);
+  showProblems(problems);
+  if (problems.length) return; // impossible box lines never save
+
+  const gid = pastGameId ?? uuid();
+  const game = {
+    id: gid,
+    date: f.date.value,
+    opponent: f.opponent.value.trim(),
+    competition: f.competition.value.trim(),
+    home_away: f.home_away.value,
+    final_us: f.final_us.value === "" ? null : Number(f.final_us.value),
+    final_them: f.final_them.value === "" ? null : Number(f.final_them.value),
+    minutes: f.minutes.value === "" ? null : Number(f.minutes.value),
+    season: f.date.value.slice(0, 4),
+    manual: 1,
+    updated_at: nowISO(),
+    deleted: 0,
+    dirty: 1,
+  };
+  // Editing regenerates: old synthetic events out, fresh set in.
+  for (const e of await eventsFor(gid)) {
+    if (e.dirty && !e.deleted) await del("events", e.id);
+    else await put("events", { ...e, deleted: 1, dirty: 1 });
+  }
+  const counts = {
+    p2m: t.fgm - t.p3m, p2x: (t.fga - t.p3a) - (t.fgm - t.p3m),
+    p3m: t.p3m, p3x: t.p3a - t.p3m, ftm: t.ftm, ftx: t.fta - t.ftm,
+    orb: t.orb, drb: t.drb, ast: t.ast, stl: t.stl, blk: t.blk, tov: t.tov, pf: t.pf,
+  };
+  const base = Date.parse(f.date.value + "T12:00:00Z") || Date.now();
+  let i = 0;
+  for (const [type, n] of Object.entries(counts)) {
+    for (let k = 0; k < n; k++) {
+      await put("events", {
+        id: uuid(), game_id: gid, type, quarter: "Q1",
+        ts: new Date(base + i++ * 1000).toISOString(),
+        x: null, y: null, deleted: 0, dirty: 1,
+      });
+    }
+  }
+  await put("games", game);
+  scheduleSync();
+  openList();
+});
+
+armable($("#import-delete"), "Delete this game", "Tap again to delete", async () => {
+  const g = await getOne("games", pastGameId);
+  if (!g) return;
+  await put("games", { ...g, deleted: 1, updated_at: nowISO(), dirty: 1 });
+  scheduleSync();
+  openList();
+});
 
 /* ---------- invite (owner only — the server enforces it too) ---------- */
 

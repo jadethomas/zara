@@ -78,29 +78,39 @@
     </div>
   </section>
 
-  <section class="section" id="shots-section" hidden>
-    <div class="section-head">
-      <h2 class="section-title">Shot chart</h2>
-      <span class="section-meta" id="shots-meta"></span>
-    </div>
-    <figure class="chart courtfig" id="fig-court"></figure>
-    <div class="shot-legend"><span>● made</span><span>✕ missed</span></div>
-  </section>
-
   <section class="section" id="log-section" hidden>
     <h2 class="section-title section-title-solo">Game log</h2>
     <div class="gamelog-wrap">
       <table class="gamelog">
         <thead><tr>
           <th>Date</th><th>Opponent</th><th>Competition</th><th>Score</th>
-          <th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th>
-          <th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th><th class="num">PF</th>
-          <th class="num">FG</th><th class="num">3P</th><th class="num">FT</th>
+          <th class="num">MIN</th><th class="num">PTS</th>
+          <th class="num">FGM-FGA</th><th class="num">FG%</th>
+          <th class="num">3PM-3PA</th><th class="num">3P%</th>
+          <th class="num">FTM-FTA</th><th class="num">FT%</th><th class="num">eFG%</th>
+          <th class="num">OREB</th><th class="num">DREB</th><th class="num">REB</th>
+          <th class="num">AST</th><th class="num">STL</th><th class="num">BLK</th>
+          <th class="num">TOV</th><th class="num">PF</th>
         </tr></thead>
         <tbody id="log-body"></tbody>
       </table>
     </div>
-    <p class="foot-note">Every number is recomputed from individually logged plays — full-game film available on request.</p>
+    <p class="foot-note">Tracked games are recomputed from individually logged plays; eFG% counts a made three as one and a half field goals — full-game film available on request.</p>
+  </section>
+
+  <section class="section" id="shots-section" hidden>
+    <div class="section-head">
+      <h2 class="section-title">Shot chart</h2>
+      <span class="section-meta" id="shots-meta"></span>
+    </div>
+    <figure class="chart courtfig" id="fig-court">
+      <figcaption>Season — all located shots</figcaption>
+      <div id="court-season"></div>
+    </figure>
+    <div class="shot-legend"><span>● made</span><span>✕ missed</span></div>
+    <h3 class="carousel-title">Game by game</h3>
+    <p class="carousel-hint">Swipe or scroll sideways.</p>
+    <div class="court-carousel" id="court-carousel"></div>
   </section>
 
   <footer class="site-footer">
@@ -184,9 +194,13 @@ function render(summary, games, shots) {
       wl.textContent = g.final_us > g.final_them ? "W" : "L";
       score.append(wl, `${g.final_us}–${g.final_them}`);
     } else score.textContent = "—";
-    td(g.pts, "num"); td(g.reb, "num"); td(g.ast, "num");
-    td(g.stl, "num"); td(g.blk, "num"); td(g.tov, "num"); td(g.pf, "num");
-    td(`${g.fgm}/${g.fga}`, "num"); td(`${g.p3m}/${g.p3a}`, "num"); td(`${g.ftm}/${g.fta}`, "num");
+    td(fmt(g.minutes), "num"); td(g.pts, "num");
+    td(`${g.fgm}-${g.fga}`, "num"); td(fmt(g.fg_pct), "num");
+    td(`${g.p3m}-${g.p3a}`, "num"); td(fmt(g.p3_pct), "num");
+    td(`${g.ftm}-${g.fta}`, "num"); td(fmt(g.ft_pct), "num"); td(fmt(g.efg_pct), "num");
+    td(g.orb, "num"); td(g.drb, "num"); td(g.reb, "num");
+    td(g.ast, "num"); td(g.stl, "num"); td(g.blk, "num");
+    td(g.tov, "num"); td(g.pf, "num");
     tr.append(...cells);
     tbody.appendChild(tr);
   }
@@ -274,8 +288,29 @@ function drawLines(fig, games, series, opts = {}) {
 /* Half court, same coordinate system the tracker records in:
  * x 0..1 across the width, y 0 at the baseline, 1 at halfway. */
 function drawCourt(shots) {
-  const fig = $("#fig-court");
-  fig.textContent = "";
+  // Season cumulative view, then one mini court per game, swipeable.
+  courtInto($("#court-season"), shots);
+  const carousel = $("#court-carousel");
+  carousel.textContent = "";
+  const byGame = new Map();
+  for (const s of shots) {
+    if (!byGame.has(s.game_id)) byGame.set(s.game_id, []);
+    byGame.get(s.game_id).push(s);
+  }
+  for (const gameShots of byGame.values()) {
+    const card = document.createElement("figure");
+    card.className = "chart court-card";
+    const cap = document.createElement("figcaption");
+    cap.textContent = `Zara Thomas · ${gameShots[0].opponent} · ${gameShots[0].date}`;
+    const holder = document.createElement("div");
+    card.append(cap, holder);
+    carousel.appendChild(card);
+    courtInto(holder, gameShots);
+  }
+}
+
+function courtInto(el, shots) {
+  el.textContent = "";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 150 140");
   let inner = `
@@ -296,7 +331,7 @@ function drawCourt(shots) {
     }
   }
   svg.innerHTML = inner;
-  fig.appendChild(svg);
+  el.appendChild(svg);
 }
 
 $("#f-season").addEventListener("change", load);

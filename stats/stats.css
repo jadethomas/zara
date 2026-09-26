@@ -48,3 +48,16 @@
    unsafe-inline for styles, so a style= attribute is silently dropped. */
 .sw-fg { background: #16a34a; }
 .sw-3p { background: #0284c7; }
+
+/* Shot chart: season court + swipeable per-game carousel */
+#fig-court figcaption { font-family: var(--cond); font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-bottom: 8px; }
+.carousel-title { font-family: var(--cond); font-weight: 700; font-size: 18px; text-transform: uppercase; letter-spacing: .04em; color: var(--text); margin: 24px 0 2px; }
+.carousel-hint { font-size: 12px; color: var(--text-muted); margin: 0 0 10px; }
+.court-carousel {
+  display: flex; gap: 14px;
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 8px; /* room for the scrollbar */
+}
+.court-card { flex: 0 0 min(78vw, 320px); scroll-snap-align: start; }
+.court-card figcaption { font-size: 13px !important; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
