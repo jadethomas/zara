@@ -78,6 +78,11 @@ export default {
     try {
       if (path.startsWith("/api/stats/")) return await publicRoutes(request, env, url);
       if (path.startsWith("/api/track/")) return await privateRoutes(request, env, url);
+      if (path === "/stats" || path.startsWith("/stats/")) {
+        // Feature flag: pass through to Pages when on, coming-soon when off.
+        if (env.STATS_PAGE_ENABLED === "true") return fetch(request);
+        return statsComingSoon();
+      }
       return err("not found", 404);
     } catch (e) {
       console.error(JSON.stringify({ msg: "unhandled", path, error: String(e?.stack || e) }));
@@ -85,6 +90,45 @@ export default {
     }
   },
 };
+
+function statsComingSoon() {
+  return new Response(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Season stats — coming soon</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center;
+         background: #0b0e14; color: #c3cad6; text-align: center;
+         font: 16px/1.5 Barlow, system-ui, sans-serif; padding: 24px; }
+  h1 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase;
+       font-size: clamp(32px, 8vw, 52px); color: #eef1f6; margin: 0 0 10px; line-height: 1; }
+  p { margin: 0 0 22px; max-width: 34rem; }
+  a { display: inline-block; background: #22c55e; color: #0b0e14; text-decoration: none;
+      font-family: "Barlow Condensed", sans-serif; font-weight: 800; text-transform: uppercase;
+      padding: 14px 26px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div>
+  <h1>Season stats on the way</h1>
+  <p>Zara's games are being tracked play by play right now — averages, box scores
+     and shot charts will appear here once the season has some depth to show.</p>
+  <a href="/">Back to the profile</a>
+</div>
+</body>
+</html>`, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "x-robots-tag": "noindex",
+      "cache-control": "public, max-age=300",
+    },
+  });
+}
 
 async function publicRoutes(request, env, url) {
   if (request.method !== "GET") return err("method not allowed", 405);

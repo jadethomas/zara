@@ -15,7 +15,12 @@
   // The zone serves the static site from Cloudflare Pages; this route
   // intercepts only /api/*. Everything else falls through to Pages.
   "routes": [
-    { "pattern": "zara-thomas.com/api/*", "zone_name": "zara-thomas.com" }
+    { "pattern": "zara-thomas.com/api/*", "zone_name": "zara-thomas.com" },
+    // Feature flag for the public stats report: while STATS_PAGE_ENABLED is
+    // "false" this route serves a coming-soon page; "true" passes straight
+    // through to Pages. Flip the var below and `npm run deploy`, and put the
+    // Stats nav links back in index.html/404.html (marked with the flag name).
+    { "pattern": "zara-thomas.com/stats*", "zone_name": "zara-thomas.com" }
   ],
 
   "d1_databases": [
@@ -49,6 +54,8 @@
     "MAIL_FROM": "Zara Stats <zara-stats@send.athomeinteriors.nz>",
     // Which jersey number the box-score import looks for when the sheet has
     // no matching name.
-    "ZARA_JERSEY": "13"
+    "ZARA_JERSEY": "13",
+    // Hide the public stats report until there is a season's worth of games.
+    "STATS_PAGE_ENABLED": "false"
   }
 }

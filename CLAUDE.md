@@ -49,6 +49,13 @@ Game-stat tracking for recruiting. Three pieces:
   columns — remote schema changes need explicit `ALTER TABLE`.
   `workers_dev` stays false.
 
+**Stats page feature flag**: the Worker also owns `zara-thomas.com/stats*`.
+`STATS_PAGE_ENABLED` (wrangler.jsonc var) — "false" serves a noindex
+coming-soon page; "true" passes through to Pages. Flipping it on is TWO
+steps: set the var + `npm run deploy`, and restore the Stats nav links in
+`index.html`/`404.html` (commented, marked STATS_PAGE_ENABLED) + push.
+`/api/stats/*` stays public either way.
+
 **Past-game import** (`POST /api/track/import`): a box-score photo, PDF or
 pasted text goes to the Claude API (model `claude-opus-5`, structured output
 via the SDK's `messages.parse` + zod schema in `worker/src/import.js`), which
