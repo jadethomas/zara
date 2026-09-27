@@ -270,3 +270,18 @@ main { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: 
 .totals-grid input { min-height: 44px; width: 100%; }
 .totals-pts { grid-column: span 3; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
 .totals-pts b { font-family: var(--cond); font-weight: 800; font-size: 24px; color: var(--accent); }
+
+/* ---------- minutes timer ---------- */
+.mins-row { display: flex; gap: 8px; flex: none; }
+.mins-toggle {
+  flex: 2; min-height: 52px; border-radius: 8px;
+  border: 2px solid var(--accent); color: var(--accent);
+  font-family: var(--cond); font-weight: 800; font-size: 22px;
+  font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
+}
+.mins-toggle.running { background: var(--accent); color: var(--bg); }
+.mins-adj {
+  flex: 1; min-height: 52px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-family: var(--cond); font-weight: 700; font-size: 17px; color: var(--body);
+}

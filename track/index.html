@@ -96,6 +96,12 @@
     <button data-q="OT">OT</button>
   </div>
 
+  <div class="mins-row" aria-label="Minutes played timer">
+    <button id="timer-toggle" class="mins-toggle">▶ 00:00</button>
+    <button id="timer-minus" class="mins-adj" aria-label="Subtract 30 seconds">−30s</button>
+    <button id="timer-plus" class="mins-adj" aria-label="Add 30 seconds">+30s</button>
+  </div>
+
   <div class="pad">
     <div class="pad-row">
       <button class="pad-btn made" data-type="p2m">2PT<span>make</span></button>
@@ -136,11 +142,11 @@
   <svg id="court" viewBox="0 0 150 140" aria-label="Half court — tap the shot location">
     <rect x="0" y="0" width="150" height="140" class="court-floor"/>
     <line x1="0" y1="1" x2="150" y2="1" class="court-line"/>
-    <rect x="50" y="1" width="50" height="58" class="court-line" fill="none"/>
+    <rect x="50.5" y="1" width="49" height="58" class="court-line" fill="none"/>
     <circle cx="75" cy="59" r="18" class="court-line" fill="none"/>
-    <circle cx="75" cy="16" r="4.5" class="court-hoop"/>
-    <line x1="66" y1="12" x2="84" y2="12" class="court-line"/>
-    <path d="M 8 1 L 8 30 A 67 67 0 0 0 142 30 L 142 1" class="court-line court-arc" fill="none"/>
+    <line x1="66" y1="13" x2="84" y2="13" class="court-line"/>
+    <circle cx="75" cy="16.75" r="2.25" class="court-hoop"/>
+    <path d="M 9 1 L 9 30.9 A 67.5 67.5 0 0 0 141 30.9 L 141 1" class="court-line court-arc" fill="none"/>
     <line x1="0" y1="139" x2="150" y2="139" class="court-line"/>
   </svg>
   <div id="court-warn" class="court-warn" hidden>
