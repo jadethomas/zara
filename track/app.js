@@ -106,7 +106,7 @@ async function sync() {
 
 async function syncOnce() {
   const [gs, es] = await Promise.all([getAll("games"), getAll("events")]);
-  const games = gs.filter((g) => g.dirty).map(({ dirty, box, ...g }) => g);
+  const games = gs.filter((g) => g.dirty).map(({ dirty, box, timer_accum_s, timer_started_at, ...g }) => g);
   const events = es.filter((e) => e.dirty).map(({ dirty, ...e }) => e);
   const n = games.length + events.length;
   if (!navigator.onLine) return setChip("offline");
@@ -160,6 +160,8 @@ async function pull() {
         id: sg.id, date: sg.date, opponent: sg.opponent, competition: sg.competition,
         home_away: sg.home_away, final_us: sg.final_us, final_them: sg.final_them,
         minutes: sg.minutes ?? null, manual: sg.manual ? 1 : 0,
+        // The minutes timer lives only on this device.
+        timer_accum_s: local?.timer_accum_s, timer_started_at: local?.timer_started_at,
         season: sg.season, updated_at: sg.updated_at, deleted: sg.deleted ? 1 : 0, dirty: 0,
         box: { p2m, p2x, p3m, p3x, ftm, ftx, orb, drb, ast, stl, blk, tov, pf, pts, reb, fg_pct },
       });
@@ -318,6 +320,7 @@ $("#new-game").addEventListener("click", () => openForm(null));
 
 async function openForm(gameId) {
   editingId = gameId;
+  if (gameId && gameId === curGame?.id) await pauseTimer(); // ending the game stops the clock
   const f = $("#game-form");
   f.reset();
   show("form");
@@ -334,7 +337,10 @@ async function openForm(gameId) {
   f.home_away.value = g?.home_away ?? "home";
   f.final_us.value = g?.final_us ?? "";
   f.final_them.value = g?.final_them ?? "";
-  f.minutes.value = g?.minutes ?? "";
+  // Timer total prefills the editable minutes field; a hand-entered value
+  // (e.g. from the official sheet) always wins once saved.
+  const timed = g ? Math.round(timerElapsed(g) / 60) : 0;
+  f.minutes.value = g?.minutes ?? (timed > 0 ? timed : "");
 
   // competition suggestions from history
   const comps = [...new Set((await getAll("games")).map((x) => x.competition).filter(Boolean))];
@@ -384,6 +390,8 @@ $("#game-form").addEventListener("submit", async (ev) => {
     deleted: 0,
     dirty: 1,
     box: existing?.box,
+    timer_accum_s: existing?.timer_accum_s,
+    timer_started_at: existing?.timer_started_at ?? null,
   };
   await put("games", g);
   scheduleSync();
@@ -413,8 +421,74 @@ async function openGame(gameId) {
   );
   await metaSet("view", { name: "game", id: gameId });
   renderQuarter();
+  renderTimer();
   await renderGame();
 }
+
+/* ---------- minutes timer ----------
+ * Timestamp-based so backgrounding, screen lock and reloads lose nothing:
+ * elapsed = accumulated seconds + (now - start timestamp) while running.
+ * State lives on the game record in IndexedDB, local to this device. */
+
+function timerElapsed(g) {
+  return (g.timer_accum_s ?? 0) +
+    (g.timer_started_at ? Math.max(0, (Date.now() - g.timer_started_at) / 1000) : 0);
+}
+
+function renderTimer() {
+  if (view !== "game" || !curGame) return;
+  const secs = Math.round(timerElapsed(curGame));
+  const mmss = `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
+  const btn = $("#timer-toggle");
+  const running = !!curGame.timer_started_at;
+  btn.classList.toggle("running", running);
+  btn.textContent = `${running ? "⏸" : "▶"} ${mmss}`;
+}
+
+let timerChain = Promise.resolve();
+function timerMutate(fn) {
+  // Serialised: rapid +30/−30 taps are read-modify-write cycles, and running
+  // them concurrently loses all but the last one.
+  timerChain = timerChain.then(async () => {
+    if (!curGame) return;
+    const g = (await getOne("games", curGame.id)) ?? curGame;
+    fn(g);
+    curGame = g;
+    await put("games", g); // local-only fields; no dirty flag, nothing to sync
+    renderTimer();
+  });
+  return timerChain;
+}
+
+async function pauseTimer() {
+  if (!curGame?.timer_started_at) return;
+  await timerMutate((g) => {
+    if (g.timer_started_at) {
+      g.timer_accum_s = (g.timer_accum_s ?? 0) + Math.max(0, (Date.now() - g.timer_started_at) / 1000);
+      g.timer_started_at = null;
+    }
+  });
+}
+
+$("#timer-toggle").addEventListener("click", () => timerMutate((g) => {
+  if (g.timer_started_at) {
+    g.timer_accum_s = (g.timer_accum_s ?? 0) + Math.max(0, (Date.now() - g.timer_started_at) / 1000);
+    g.timer_started_at = null;
+  } else {
+    g.timer_started_at = Date.now();
+  }
+}));
+$("#timer-plus").addEventListener("click", () => timerMutate((g) => {
+  g.timer_accum_s = (g.timer_accum_s ?? 0) + 30;
+}));
+$("#timer-minus").addEventListener("click", () => timerMutate((g) => {
+  g.timer_accum_s = Math.max(0, (g.timer_accum_s ?? 0) - 30 +
+    // While running, first fold the live segment in so −30 acts on the total.
+    (g.timer_started_at ? Math.max(0, (Date.now() - g.timer_started_at) / 1000) : 0));
+  if (g.timer_started_at) g.timer_started_at = Date.now();
+}));
+setInterval(() => { if (curGame?.timer_started_at) renderTimer(); }, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderTimer(); });
 
 function renderQuarter() {
   for (const b of document.querySelectorAll(".quarters button"))
@@ -425,6 +499,7 @@ for (const b of document.querySelectorAll(".quarters button")) {
     quarter = b.dataset.q;
     await metaSet("q:" + curGame.id, quarter);
     renderQuarter();
+    await pauseTimer(); // quarter break: Zara is off the clock until it restarts
   });
 }
 
