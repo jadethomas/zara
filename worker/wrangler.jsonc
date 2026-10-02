@@ -56,6 +56,6 @@
     // no matching name.
     "ZARA_JERSEY": "13",
     // Hide the public stats report until there is a season's worth of games.
-    "STATS_PAGE_ENABLED": "false"
+    "STATS_PAGE_ENABLED": "true"
   }
 }
