@@ -89,7 +89,7 @@
           <th class="num">3PM-3PA</th><th class="num">3P%</th>
           <th class="num">FTM-FTA</th><th class="num">FT%</th><th class="num">eFG%</th>
           <th class="num">OREB</th><th class="num">DREB</th><th class="num">REB</th>
-          <th class="num">AST</th><th class="num">STL</th><th class="num">BLK</th>
+          <th class="num">STL</th><th class="num">BLK</th>
           <th class="num">TOV</th><th class="num">PF</th>
         </tr></thead>
         <tbody id="log-body"></tbody>
@@ -164,7 +164,7 @@ function render(summary, games, shots) {
   const a = summary.averages;
   const tiles = [
     ["GP", summary.games, false], ["PPG", a.ppg, true], ["RPG", a.rpg, false],
-    ["APG", a.apg, false], ["SPG", a.spg, false], ["BPG", a.bpg, false],
+    ["SPG", a.spg, false], ["BPG", a.bpg, false],
     ["TO", a.topg, false], ["FG%", a.fg_pct, false], ["3P%", a.p3_pct, false], ["FT%", a.ft_pct, false],
   ];
   $("#tiles").textContent = "";
@@ -199,7 +199,7 @@ function render(summary, games, shots) {
     td(`${g.p3m}-${g.p3a}`, "num"); td(fmt(g.p3_pct), "num");
     td(`${g.ftm}-${g.fta}`, "num"); td(fmt(g.ft_pct), "num"); td(fmt(g.efg_pct), "num");
     td(g.orb, "num"); td(g.drb, "num"); td(g.reb, "num");
-    td(g.ast, "num"); td(g.stl, "num"); td(g.blk, "num");
+    td(g.stl, "num"); td(g.blk, "num");
     td(g.tov, "num"); td(g.pf, "num");
     tr.append(...cells);
     tbody.appendChild(tr);
