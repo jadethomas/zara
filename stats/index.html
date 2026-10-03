@@ -51,13 +51,18 @@
         <select id="f-comp"><option value="">All competitions</option></select>
       </label>
     </div>
+    <p class="comp-note">Nationals is the New Zealand secondary schools national championship — the top school basketball tournament in the country. Zara's team, WEGC, finished 7th in New Zealand in 2026.</p>
 
     <div id="empty" class="empty" hidden>
       <p>No games logged yet — stats will appear here as the season is tracked, game by game.</p>
     </div>
 
     <div id="tiles" class="tiles" hidden></div>
-    <p class="foot-note" id="tiles-note" hidden>Per-game averages. Shooting percentages are season totals (makes ÷ attempts), not averaged game percentages.</p>
+    <div id="tiles36-wrap" hidden>
+      <p class="tiles-rowlabel">Per 36 minutes</p>
+      <div id="tiles36" class="tiles"></div>
+    </div>
+    <p class="foot-note" id="tiles-note" hidden>Per-game averages; the per-36 row rescales counting stats to a full 36-minute game. Shooting percentages are season totals (makes ÷ attempts), not averaged game percentages.</p>
   </section>
 
   <section class="section" id="charts-section" hidden>
@@ -154,27 +159,44 @@ function render(summary, games, shots) {
 
   const has = summary.games > 0;
   $("#empty").hidden = has;
-  $("#tiles").hidden = $("#tiles-note").hidden = !has;
+  $("#tiles").hidden = $("#tiles-note").hidden = $("#tiles36-wrap").hidden = !has;
   $("#log-section").hidden = !has;
   $("#charts-section").hidden = games.length < 2;
   $("#shots-section").hidden = shots.length === 0;
   if (!has) return;
 
   // ---- tiles ----
+  // MPG and per-36 come from the (identically filtered) game list, using only
+  // games with recorded minutes so a game missing minutes can't skew the rate.
   const a = summary.averages;
+  const withMin = games.filter((g) => g.minutes != null);
+  const minTotal = withMin.reduce((t, g) => t + g.minutes, 0);
+  const mpg = withMin.length ? +(minTotal / withMin.length).toFixed(1) : null;
   const tiles = [
-    ["GP", summary.games, false], ["PPG", a.ppg, true], ["RPG", a.rpg, false],
+    ["GP", summary.games, false], ["MPG", mpg, false], ["PPG", a.ppg, true], ["RPG", a.rpg, false],
     ["SPG", a.spg, false], ["BPG", a.bpg, false],
     ["TO", a.topg, false], ["FG%", a.fg_pct, false], ["3P%", a.p3_pct, false], ["FT%", a.ft_pct, false],
   ];
-  $("#tiles").textContent = "";
-  for (const [label, val, hero] of tiles) {
-    const d = document.createElement("div");
-    d.className = "tile" + (hero ? " tile-hero" : ""); // not "hero": styles.css owns that name
-    const b = document.createElement("b"); b.textContent = fmt(val);
-    const s = document.createElement("span"); s.textContent = label;
-    d.append(b, s);
-    $("#tiles").appendChild(d);
+  const fillTiles = (el, list) => {
+    el.textContent = "";
+    for (const [label, val, hero] of list) {
+      const d = document.createElement("div");
+      d.className = "tile" + (hero ? " tile-hero" : ""); // not "hero": styles.css owns that name
+      const b = document.createElement("b"); b.textContent = fmt(val);
+      const s = document.createElement("span"); s.textContent = label;
+      d.append(b, s);
+      el.appendChild(d);
+    }
+  };
+  fillTiles($("#tiles"), tiles);
+
+  $("#tiles36-wrap").hidden = minTotal === 0;
+  if (minTotal > 0) {
+    const p36 = (k) => +((withMin.reduce((t, g) => t + g[k], 0) / minTotal) * 36).toFixed(1);
+    fillTiles($("#tiles36"), [
+      ["PTS/36", p36("pts"), false], ["REB/36", p36("reb"), true], ["OREB/36", p36("orb"), false],
+      ["STL/36", p36("stl"), false], ["BLK/36", p36("blk"), false],
+    ]);
   }
 
   // ---- game log ---- (oldest last; API returns newest first already)

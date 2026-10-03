@@ -43,6 +43,8 @@
   .shot-miss { stroke: #8791a3; stroke-width: 1.6; }
   .shot-legend { display: flex; gap: 18px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
   .foot-note { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+  .comp-note { font-size: 13px; color: var(--text-muted); margin: 2px 0 12px; max-width: 72ch; }
+  .tiles-rowlabel { font-family: var(--cond); font-weight: 700; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px; }
 
 /* Legend swatches — classes, not style attributes: the site CSP has no
    unsafe-inline for styles, so a style= attribute is silently dropped. */
